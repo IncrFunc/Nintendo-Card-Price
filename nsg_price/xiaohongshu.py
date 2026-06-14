@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import subprocess
 import time
 from dataclasses import dataclass
@@ -55,6 +56,19 @@ def publish_pack_files(pack_dir: Path) -> tuple[list[Path], Path]:
     if not caption_path.exists():
         raise FileNotFoundError(f"missing caption: {caption_path}")
     return images, caption_path
+
+
+def split_body_and_tags(body: str) -> tuple[str, list[str]]:
+    lines = body.rstrip().splitlines()
+    if not lines:
+        return "", []
+    tag_line_index = next((index for index in range(len(lines) - 1, -1, -1) if lines[index].lstrip().startswith("#")), -1)
+    if tag_line_index < 0:
+        return body, []
+    tag_line = lines[tag_line_index]
+    tags = [item.lstrip("#") for item in re.findall(r"#[^\s#]+", tag_line)]
+    main_lines = lines[:tag_line_index] + lines[tag_line_index + 1 :]
+    return "\n".join(main_lines).strip(), tags
 
 
 def wait_for_debug_port(port: int, timeout: float = 20.0) -> None:
@@ -114,12 +128,12 @@ async def _activate_image_tab(page: Any) -> None:
         tab = tabs.nth(index)
         text = (await tab.inner_text()).strip()
         if "上传图文" in text:
-            await tab.click()
+            await tab.evaluate("(element) => element.click()")
             await page.wait_for_timeout(1000)
             return
     link = page.get_by_text("上传图文", exact=True)
     if await link.count():
-        await link.first.click()
+        await link.first.evaluate("(element) => element.click()")
         await page.wait_for_timeout(1000)
         return
     raise RuntimeError("could not find Xiaohongshu image publish tab")
@@ -132,6 +146,7 @@ async def _upload_images(page: Any, images: list[Path]) -> None:
 
 
 async def _fill_title_and_body(page: Any, title: str, body: str) -> None:
+    main_body, tags = split_body_and_tags(body)
     visible_inputs = page.locator('input[type="text"]:visible')
     if await visible_inputs.count() < 1:
         raise RuntimeError("could not find visible title input")
@@ -143,8 +158,15 @@ async def _fill_title_and_body(page: Any, title: str, body: str) -> None:
     editor = page.locator(".tiptap.ProseMirror").first
     await editor.click(timeout=10000)
     await page.keyboard.press("Control+A")
-    # Real key events give Xiaohongshu's editor a chance to transform #tags into topic tokens.
-    await page.keyboard.type(body, delay=1)
+    await page.keyboard.type(main_body, delay=1)
+    if tags:
+        await page.keyboard.press("Enter")
+        await page.keyboard.press("Enter")
+    for tag in tags:
+        await page.keyboard.type(f"#{tag}", delay=1)
+        await page.wait_for_timeout(900)
+        await page.keyboard.press("Enter")
+        await page.wait_for_timeout(300)
     await page.wait_for_timeout(1200)
 
 
