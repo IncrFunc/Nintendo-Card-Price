@@ -14,3 +14,13 @@ def test_windows_task_scripts_define_expected_schedule():
     assert '"main.py", "--config", $Config, "fetch"' in run_script
     assert "--dry-run" in run_script
     assert "--no-report" in run_script
+
+
+def test_xhs_today_script_wraps_publish_flow():
+    script = Path("scripts/publish_xhs_today.py").read_text(encoding="utf-8")
+
+    assert "build_publish_pack" in script
+    assert "publish_to_xiaohongshu" in script
+    assert "--publish" in script
+    assert "--no-launch-edge" in script
+    assert "latest_existing_session" in script

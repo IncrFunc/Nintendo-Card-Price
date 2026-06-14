@@ -203,20 +203,49 @@ INDEX_HTML = r"""<!doctype html>
     }
     .sidebar-top {
       display: grid;
-      gap: 12px;
-      margin-bottom: 14px;
-      position: sticky;
-      top: 0;
-      z-index: 1;
-      padding-bottom: 10px;
-      background: linear-gradient(180deg, rgba(19,33,47,.98) 0%, rgba(19,33,47,.96) 78%, rgba(19,33,47,0) 100%);
+      gap: 8px;
+      margin-bottom: 10px;
     }
     .sidebar-top .panel {
       margin-bottom: 0;
+      padding: 12px;
+      border-radius: 18px;
+      box-shadow: none;
+    }
+    .sidebar-top .panel-note {
+      display: none;
+    }
+    .sidebar-top .toolbar {
+      margin: 8px 0 0 !important;
     }
     .merchant-switch-panel {
       border-color: rgba(240, 194, 164, .5);
       background: linear-gradient(145deg, rgba(255,253,249,.98), rgba(248,223,207,.92));
+      color: var(--text);
+      padding: 0;
+    }
+    .merchant-switch-panel summary {
+      display: grid;
+      gap: 4px;
+      cursor: pointer;
+      list-style: none;
+      padding: 12px 14px;
+    }
+    .merchant-switch-panel summary::-webkit-details-marker { display: none; }
+    .merchant-switch-panel summary::after {
+      content: "展开";
+      position: absolute;
+      right: 14px;
+      top: 14px;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .merchant-switch-panel[open] summary::after { content: "收起"; }
+    .merchant-switch-body {
+      display: grid;
+      gap: 10px;
+      padding: 0 14px 14px;
     }
     .compact-merchants {
       gap: 8px;
@@ -339,6 +368,7 @@ INDEX_HTML = r"""<!doctype html>
       margin-bottom: 18px;
       position: relative;
       overflow: hidden;
+      color: var(--text);
     }
     .panel::before {
       content: "";
@@ -586,12 +616,16 @@ INDEX_HTML = r"""<!doctype html>
             <input id="filter" placeholder="搜索游戏">
           </div>
         </div>
-        <div class="panel merchant-switch-panel">
+        <details class="panel merchant-switch-panel">
+          <summary>
           <div class="panel-title">回收商总开关</div>
           <div class="panel-note">接口异常时先在这里关闭对应回收商，采集和自动匹配会立刻跳过。</div>
-          <span id="merchantStatus" class="status soft">等待操作</span>
-          <div id="merchantSettings" class="merchant-grid compact-merchants"></div>
-        </div>
+          </summary>
+          <div class="merchant-switch-body">
+            <span id="merchantStatus" class="status soft">等待操作</span>
+            <div id="merchantSettings" class="merchant-grid compact-merchants"></div>
+          </div>
+        </details>
       </div>
       <div id="games" class="games"></div>
     </aside>

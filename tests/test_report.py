@@ -1,6 +1,7 @@
 import json
+from datetime import date, timedelta
 
-from nsg_price.report import PIL_AVAILABLE, build_today_price_table, generate_report, lttb_downsample
+from nsg_price.report import PIL_AVAILABLE, build_today_price_table, generate_report, lttb_downsample, trend_average_series
 
 
 def test_generate_report_svg_pages(tmp_path, monkeypatch):
@@ -144,21 +145,22 @@ def test_today_report_does_not_drop_games_after_26(tmp_path, monkeypatch):
 def test_trend_chart_uses_axis_price_labels_and_downsampling(tmp_path, monkeypatch):
     prices_path = tmp_path / "prices.json"
     records = []
-    for index in range(30):
-        hour = 9 if index % 2 == 0 else 15
-        day = index // 2 + 1
-        records.append(
-            {
-                "merchant": "laolieren",
-                "merchant_name": "老猎人",
-                "game_slug": "zelda",
-                "game_name": "塞尔达",
-                "recycle_price": 180 + ((index * 7) % 31),
-                "status": "ok",
-                "session": "am" if hour < 12 else "pm",
-                "fetched_at": f"2026-06-{day:02d}T{hour:02d}:55:00+08:00",
-            }
-        )
+    start = date(2025, 5, 12)
+    for index in range(400):
+        day = start + timedelta(days=index)
+        for session, hour, offset in (("am", 9, 0), ("pm", 15, 8)):
+            records.append(
+                {
+                    "merchant": "laolieren",
+                    "merchant_name": "老猎人",
+                    "game_slug": "zelda",
+                    "game_name": "塞尔达",
+                    "recycle_price": 180 + ((index * 7 + offset) % 31),
+                    "status": "ok",
+                    "session": session,
+                    "fetched_at": f"{day.isoformat()}T{hour:02d}:55:00+08:00",
+                }
+            )
     prices_path.write_text(json.dumps(records, ensure_ascii=False), encoding="utf-8")
     monkeypatch.chdir(tmp_path)
     config = {
@@ -169,11 +171,17 @@ def test_trend_chart_uses_axis_price_labels_and_downsampling(tmp_path, monkeypat
 
     generate_report(config, target_date="2026-06-15")
 
+    series = trend_average_series(records, "zelda", "2026-06-15")
+    assert len(series) == 365
+    assert series[0][0] == "2025-06-16"
+    assert series[-1][0] == "2026-06-15"
     trend_svg = (tmp_path / "data" / "reports" / "2026-06-15" / "02_trend.svg").read_text(encoding="utf-8")
-    assert "30 次→12 点" in trend_svg
     assert 'text-anchor="end">¥' in trend_svg
     assert trend_svg.count('<circle') <= 12
-    assert "06-01 上午" in trend_svg
+    assert "上午" not in trend_svg
+    assert "Δ" not in trend_svg
+    assert "次→" not in trend_svg
+    assert "06-16 下午" in trend_svg
     assert "06-15 下午" in trend_svg
 
 

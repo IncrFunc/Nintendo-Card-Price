@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import html
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +22,7 @@ except ImportError:  # pragma: no cover - optional PNG output.
 COLORS = ["#0f766e", "#2563eb", "#c2410c", "#7c3aed", "#be123c", "#15803d"]
 MERCHANT_ORDER = ["laolieren", "huoqiangshou", "hailuo", "baibiandui", "hangzhouxizi"]
 TREND_MAX_POINTS = 12
+TREND_LOOKBACK_DAYS = 365
 FONT_REGULAR_CANDIDATES = [
     "C:/Windows/Fonts/msyh.ttc",
     "C:/Windows/Fonts/simhei.ttf",
@@ -127,8 +128,25 @@ def visible_merchants(
     return [(key, name) for key, name in configured if key in merchants_with_current_data]
 
 
-def trend_average_series(records: list[dict[str, Any]], game_slug: str) -> list[tuple[str, str, float]]:
-    return [(item["date"], item["label"], item["avg_price"]) for item in build_session_average_series(records, game_slug)]
+def trend_cutoff_date(target_date: str | None) -> str | None:
+    if not target_date:
+        return None
+    return (datetime.fromisoformat(target_date).date() - timedelta(days=TREND_LOOKBACK_DAYS - 1)).isoformat()
+
+
+def trend_average_series(records: list[dict[str, Any]], game_slug: str, target_date: str | None = None) -> list[tuple[str, str, float]]:
+    cutoff = trend_cutoff_date(target_date)
+    series = []
+    for item in build_session_average_series(records, game_slug):
+        if item.get("session") != "pm":
+            continue
+        item_date = item["date"]
+        if cutoff and item_date < cutoff:
+            continue
+        if target_date and item_date > target_date:
+            continue
+        series.append((item_date, item["label"], item["avg_price"]))
+    return series
 
 
 def build_today_price_table(config: dict[str, Any], records: list[dict[str, Any]], target_date: str, session: str | None = None) -> list[dict[str, Any]]:
@@ -167,7 +185,7 @@ def build_today_price_table(config: dict[str, Any], records: list[dict[str, Any]
     return rows
 
 
-def build_trend_series(config: dict[str, Any], records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def build_trend_series(config: dict[str, Any], records: list[dict[str, Any]], target_date: str | None = None) -> list[dict[str, Any]]:
     rows = []
     for game in [game for game in config.get("games", []) if game.get("enabled", True)]:
         rows.append(
@@ -175,7 +193,10 @@ def build_trend_series(config: dict[str, Any], records: list[dict[str, Any]]) ->
                 "game_slug": game.get("slug"),
                 "game_name": game.get("name"),
                 "platform": game.get("platform"),
-                "session_average": build_session_average_series(records, game["slug"]),
+                "session_average": [
+                    {"date": date, "label": label, "avg_price": avg_price, "session": "pm"}
+                    for date, label, avg_price in trend_average_series(records, game["slug"], target_date)
+                ],
             }
         )
     return rows
@@ -386,10 +407,10 @@ def y_for_value(value: float, chart_y: int, chart_h: int, min_v: float, max_v: f
     return chart_y + chart_h - (value - min_v) / span * chart_h
 
 
-def generate_trend_page(records: list[dict[str, Any]], games: list[dict[str, Any]], page_no: int, output: Path) -> None:
+def generate_trend_page(records: list[dict[str, Any]], games: list[dict[str, Any]], page_no: int, output: Path, target_date: str | None = None) -> None:
     parts = [
         svg_text(54, 74, "回收价走势", 38, 760),
-        svg_text(54, 112, f"第 {page_no} 页 · 每页 6 款 · 每卡独立走势", 22, 500, "#64748b"),
+        svg_text(54, 112, f"第 {page_no} 页 · 每页 6 款 · 近一年下午趋势", 22, 500, "#64748b"),
     ]
     for idx, game in enumerate(games):
         row, col = divmod(idx, 2)
@@ -398,10 +419,10 @@ def generate_trend_page(records: list[dict[str, Any]], games: list[dict[str, Any
         panel_w = 470
         panel_h = 330
         chart_x = panel_x + 64
-        chart_y = panel_y + 104
+        chart_y = panel_y + 92
         chart_w = panel_w - 96
-        chart_h = 150
-        series = trend_average_series(records, game["slug"])
+        chart_h = 164
+        series = trend_average_series(records, game["slug"], target_date)
         sampled_series = lttb_downsample(series)
         plot_series = [(label, value) for _, label, value in sampled_series]
         values = [value for _, _, value in series]
@@ -413,13 +434,7 @@ def generate_trend_page(records: list[dict[str, Any]], games: list[dict[str, Any
         parts.append(svg_text(panel_x + 24, panel_y + 46, name, 23, 720))
         latest = f"¥{series[-1][2]:.0f}" if series else "暂无"
         parts.append(svg_text(panel_x + panel_w - 24, panel_y + 46, latest, 23, 760, color, "end"))
-        if series:
-            delta = series[-1][2] - series[0][2]
-            sign = "+" if delta >= 0 else ""
-            subtitle = f"趋势 {len(series)} 次→{len(sampled_series)} 点 · Δ {sign}¥{delta:.0f}"
-        else:
-            subtitle = "暂无历史价格"
-        parts.append(svg_text(panel_x + 24, panel_y + 78, subtitle, 17, 500, "#64748b"))
+        # Keep the small cards focused on the line shape; axis labels carry the price scale.
         for tick in y_axis_ticks(min_v, max_v):
             gy = y_for_value(tick, chart_y, chart_h, min_v, max_v)
             parts.append(f'<line x1="{chart_x}" y1="{gy:.1f}" x2="{chart_x + chart_w}" y2="{gy:.1f}" stroke="#e5e7eb"/>')
@@ -448,13 +463,13 @@ def scale_point(index: int, count: int, value: float, x: int, y: int, width: int
     return px, py
 
 
-def generate_trend_png(records: list[dict[str, Any]], games: list[dict[str, Any]], page_no: int, output: Path) -> None:
+def generate_trend_png(records: list[dict[str, Any]], games: list[dict[str, Any]], page_no: int, output: Path, target_date: str | None = None) -> None:
     if not PIL_AVAILABLE:
         return
     image = Image.new("RGB", (1080, 1440), "#f7f8fb")
     draw = ImageDraw.Draw(image)
     png_text(draw, (54, 46), "回收价走势", 38, bold=True)
-    png_text(draw, (54, 96), f"第 {page_no} 页 · 每页 6 款 · 每卡独立走势", 22, "#64748b")
+    png_text(draw, (54, 96), f"第 {page_no} 页 · 每页 6 款 · 近一年下午趋势", 22, "#64748b")
     for idx, game in enumerate(games):
         row, col = divmod(idx, 2)
         panel_x = 54 + col * 500
@@ -462,10 +477,10 @@ def generate_trend_png(records: list[dict[str, Any]], games: list[dict[str, Any]
         panel_w = 470
         panel_h = 330
         chart_x = panel_x + 64
-        chart_y = panel_y + 104
+        chart_y = panel_y + 92
         chart_w = panel_w - 96
-        chart_h = 150
-        series = trend_average_series(records, game["slug"])
+        chart_h = 164
+        series = trend_average_series(records, game["slug"], target_date)
         sampled_series = lttb_downsample(series)
         values = [value for _, _, value in series]
         min_v = min(values) if values else 0
@@ -476,13 +491,7 @@ def generate_trend_png(records: list[dict[str, Any]], games: list[dict[str, Any]
         png_text(draw, (panel_x + 24, panel_y + 25), name, 23, "#172033", bold=True)
         latest = f"¥{series[-1][2]:.0f}" if series else "暂无"
         png_text(draw, (panel_x + panel_w - 24, panel_y + 25), latest, 23, color, bold=True, anchor="ra")
-        if series:
-            delta = series[-1][2] - series[0][2]
-            sign = "+" if delta >= 0 else ""
-            subtitle = f"趋势 {len(series)} 次→{len(sampled_series)} 点 · Δ {sign}¥{delta:.0f}"
-        else:
-            subtitle = "暂无历史价格"
-        png_text(draw, (panel_x + 24, panel_y + 62), subtitle, 17, "#64748b")
+        # Keep the small cards focused on the line shape; axis labels carry the price scale.
         for tick in y_axis_ticks(min_v, max_v):
             gy = round(y_for_value(tick, chart_y, chart_h, min_v, max_v))
             draw.line((chart_x, gy, chart_x + chart_w, gy), fill="#e5e7eb", width=2)
@@ -519,7 +528,7 @@ def generate_report(config: dict[str, Any], target_date: str | None = None, sess
     today_json = output_dir / "today_prices.json"
     trend_json = output_dir / "trend_series.json"
     write_json(today_json, build_today_price_table(config, records, target_date, normalized_session))
-    write_json(trend_json, build_trend_series(config, records))
+    write_json(trend_json, build_trend_series(config, records, target_date))
     games = [game for game in config.get("games", []) if game.get("enabled", True)]
     today_chunks = [games[index : index + TODAY_TABLE_PAGE_SIZE] for index in range(0, len(games), TODAY_TABLE_PAGE_SIZE)] or [[]]
     outputs = [today_json, trend_json]
@@ -535,10 +544,10 @@ def generate_report(config: dict[str, Any], target_date: str | None = None, sess
     for idx in range(0, len(games), 6):
         page_no = idx // 6 + len(today_chunks) + 1
         output = output_dir / f"{page_no:02d}_trend.svg"
-        generate_trend_page(records, games[idx : idx + 6], page_no, output)
+        generate_trend_page(records, games[idx : idx + 6], page_no, output, target_date)
         outputs.append(output)
         png_output = output_dir / f"{page_no:02d}_trend.png"
-        generate_trend_png(records, games[idx : idx + 6], page_no, png_output)
+        generate_trend_png(records, games[idx : idx + 6], page_no, png_output, target_date)
         if png_output.exists():
             outputs.append(png_output)
     return outputs

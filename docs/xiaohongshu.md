@@ -27,6 +27,15 @@ python main.py xhs-publish --publish
 python main.py xhs-publish --session am --publish
 ```
 
+One-command Python helper:
+
+```bash
+python scripts/publish_xhs_today.py
+python scripts/publish_xhs_today.py --session pm --publish
+```
+
+By default the helper builds today's publish pack, launches controllable Edge, uploads images, fills the title/body/topics, and stops at the review step. Add `--publish` only when you want it to click the final publish button.
+
 If Playwright is not installed:
 
 ```bash
