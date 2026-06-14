@@ -1,0 +1,69 @@
+import json
+from pathlib import Path
+
+from nsg_price.publish import build_publish_pack, summarize_today_prices
+
+
+def test_summarize_today_prices_counts_statuses():
+    summary = summarize_today_prices(
+        [
+            {
+                "prices": [
+                    {"status": "ok"},
+                    {"status": "unavailable"},
+                    {"status": "missing"},
+                ]
+            },
+            {"prices": [{"status": "missing"}]},
+        ]
+    )
+    assert summary == {
+        "game_count": 2,
+        "games_with_price": 1,
+        "ok_count": 1,
+        "unavailable_count": 1,
+        "missing_count": 2,
+    }
+
+
+def test_build_publish_pack_from_existing_report(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    report_dir = Path("data/reports/2026-06-06")
+    report_dir.mkdir(parents=True)
+    (report_dir / "01_today_prices.png").write_bytes(b"first")
+    (report_dir / "02_trend.png").write_bytes(b"second")
+    (report_dir / "today_prices.json").write_text(
+        json.dumps([{"game_name": "塞尔达", "prices": [{"status": "ok"}, {"status": "unavailable"}]}], ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    output_dir, outputs = build_publish_pack({}, target_date="2026-06-06", regenerate_report=False)
+
+    assert output_dir == Path("data/publish/2026-06-06")
+    assert not (output_dir / "01.png").exists()
+    assert "Switch 卡带回收价记录" in (output_dir / "caption.txt").read_text(encoding="utf-8")
+    manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["summary"]["ok_count"] == 1
+    assert manifest["images"][0]["file"] == "data\\reports\\2026-06-06\\01_today_prices.png"
+    assert manifest["images"][1]["file"] == "data\\reports\\2026-06-06\\02_trend.png"
+    assert len([path for path in outputs if path.suffix == ".png"]) == 0
+
+
+def test_build_publish_pack_uses_session_directory_and_caption(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    report_dir = Path("data/reports/2026-06-06/am")
+    report_dir.mkdir(parents=True)
+    (report_dir / "01_today_prices.png").write_bytes(b"first")
+    (report_dir / "today_prices.json").write_text(
+        json.dumps([{"game_name": "塞尔达", "prices": [{"status": "ok"}]}], ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    output_dir, _ = build_publish_pack({}, target_date="2026-06-06", target_session="am", regenerate_report=False)
+
+    assert output_dir == Path("data/publish/2026-06-06/am")
+    caption = (output_dir / "caption.txt").read_text(encoding="utf-8")
+    assert "2026-06-06 上午" in caption
+    assert "如有想要记录的卡带请评论哦！" in caption
+    manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["session"] == "am"

@@ -1,0 +1,600 @@
+[
+  {
+    "slug": "zelda-breath-of-the-wild",
+    "name": "塞尔达传说 旷野之息",
+    "platform": "Nintendo Switch",
+    "enabled": true,
+    "merchant_ids": {
+      "laolieren": {
+        "game_id": ""
+      },
+      "huoqiangshou": {
+        "game_id": ""
+      },
+      "hailuo": {
+        "game_id": ""
+      },
+      "hangzhouxizi": {
+        "game_id": ""
+      },
+      "baibiandui": {
+        "game_id": ""
+      }
+    }
+  },
+  {
+    "slug": "zelda-tears-of-the-kingdom",
+    "name": "塞尔达传说 王国之泪",
+    "platform": "Nintendo Switch",
+    "enabled": true,
+    "merchant_ids": {
+      "laolieren": {
+        "game_id": ""
+      },
+      "huoqiangshou": {
+        "game_id": ""
+      },
+      "hailuo": {
+        "game_id": ""
+      },
+      "hangzhouxizi": {
+        "game_id": ""
+      },
+      "baibiandui": {
+        "game_id": ""
+      }
+    }
+  },
+  {
+    "slug": "super-mario-party-jamboree",
+    "name": "马里奥派对 空前盛会",
+    "platform": "Nintendo Switch",
+    "enabled": true,
+    "merchant_ids": {
+      "laolieren": {
+        "game_id": ""
+      },
+      "huoqiangshou": {
+        "game_id": ""
+      },
+      "hailuo": {
+        "game_id": ""
+      },
+      "hangzhouxizi": {
+        "game_id": ""
+      },
+      "baibiandui": {
+        "game_id": ""
+      }
+    }
+  },
+  {
+    "slug": "zelda-breath-of-the-wild-bundle",
+    "name": "塞尔达传说 旷野之息 DLC同捆",
+    "platform": "Nintendo Switch",
+    "enabled": true,
+    "merchant_ids": {
+      "laolieren": {
+        "game_id": ""
+      },
+      "huoqiangshou": {
+        "game_id": ""
+      },
+      "hailuo": {
+        "game_id": ""
+      },
+      "hangzhouxizi": {
+        "game_id": ""
+      },
+      "baibiandui": {
+        "game_id": ""
+      }
+    }
+  },
+  {
+    "slug": "zelda-echoes-of-wisdom",
+    "name": "塞尔达传说 智慧的再现",
+    "platform": "Nintendo Switch",
+    "enabled": true,
+    "merchant_ids": {
+      "laolieren": {
+        "game_id": ""
+      },
+      "huoqiangshou": {
+        "game_id": ""
+      },
+      "hailuo": {
+        "game_id": ""
+      },
+      "hangzhouxizi": {
+        "game_id": ""
+      },
+      "baibiandui": {
+        "game_id": ""
+      }
+    }
+  },
+  {
+    "slug": "fitness-boxing-3",
+    "name": "有氧拳击 3",
+    "platform": "Nintendo Switch",
+    "enabled": true,
+    "merchant_ids": {
+      "laolieren": {
+        "game_id": ""
+      },
+      "huoqiangshou": {
+        "game_id": ""
+      },
+      "hailuo": {
+        "game_id": ""
+      },
+      "hangzhouxizi": {
+        "game_id": ""
+      },
+      "baibiandui": {
+        "game_id": ""
+      }
+    }
+  },
+  {
+    "slug": "super-mario-odyssey",
+    "name": "超级马力欧 奥德赛",
+    "platform": "Nintendo Switch",
+    "enabled": true,
+    "merchant_ids": {
+      "laolieren": {
+        "game_id": ""
+      },
+      "huoqiangshou": {
+        "game_id": ""
+      },
+      "hailuo": {
+        "game_id": ""
+      },
+      "hangzhouxizi": {
+        "game_id": ""
+      },
+      "baibiandui": {
+        "game_id": ""
+      }
+    }
+  },
+  {
+    "slug": "kirby-and-the-forgotten-land",
+    "name": "星之卡比 探索发现",
+    "platform": "Nintendo Switch",
+    "enabled": true,
+    "merchant_ids": {
+      "laolieren": {
+        "game_id": ""
+      },
+      "huoqiangshou": {
+        "game_id": ""
+      },
+      "hailuo": {
+        "game_id": ""
+      },
+      "hangzhouxizi": {
+        "game_id": ""
+      },
+      "baibiandui": {
+        "game_id": ""
+      }
+    }
+  },
+  {
+    "slug": "pokemon-legends-z-a",
+    "name": "宝可梦传说 Z-A",
+    "platform": "Nintendo Switch",
+    "enabled": true,
+    "merchant_ids": {
+      "laolieren": {
+        "game_id": ""
+      },
+      "huoqiangshou": {
+        "game_id": ""
+      },
+      "hailuo": {
+        "game_id": ""
+      },
+      "hangzhouxizi": {
+        "game_id": ""
+      },
+      "baibiandui": {
+        "game_id": ""
+      }
+    }
+  },
+  {
+    "slug": "splatoon-3",
+    "name": "斯普拉遁 3",
+    "platform": "Nintendo Switch",
+    "enabled": true,
+    "merchant_ids": {
+      "laolieren": {
+        "game_id": ""
+      },
+      "huoqiangshou": {
+        "game_id": ""
+      },
+      "hailuo": {
+        "game_id": ""
+      },
+      "hangzhouxizi": {
+        "game_id": ""
+      },
+      "baibiandui": {
+        "game_id": ""
+      }
+    }
+  },
+  {
+    "slug": "super-mario-bros-wonder",
+    "name": "超级马里奥兄弟 惊奇",
+    "platform": "Nintendo Switch",
+    "enabled": true,
+    "merchant_ids": {
+      "laolieren": {
+        "game_id": ""
+      },
+      "huoqiangshou": {
+        "game_id": ""
+      },
+      "hailuo": {
+        "game_id": ""
+      },
+      "hangzhouxizi": {
+        "game_id": ""
+      },
+      "baibiandui": {
+        "game_id": ""
+      }
+    }
+  },
+  {
+    "slug": "mario-kart-8-deluxe",
+    "name": "马里奥赛车 8 豪华版",
+    "platform": "Nintendo Switch",
+    "enabled": true,
+    "merchant_ids": {
+      "laolieren": {
+        "game_id": ""
+      },
+      "huoqiangshou": {
+        "game_id": ""
+      },
+      "hailuo": {
+        "game_id": ""
+      },
+      "hangzhouxizi": {
+        "game_id": ""
+      },
+      "baibiandui": {
+        "game_id": ""
+      }
+    }
+  },
+  {
+    "slug": "luigis-mansion-3",
+    "name": "路易吉鬼屋 3",
+    "platform": "Nintendo Switch",
+    "enabled": true,
+    "merchant_ids": {
+      "laolieren": {
+        "game_id": ""
+      },
+      "huoqiangshou": {
+        "game_id": ""
+      },
+      "hailuo": {
+        "game_id": ""
+      },
+      "hangzhouxizi": {
+        "game_id": ""
+      },
+      "baibiandui": {
+        "game_id": ""
+      }
+    }
+  },
+  {
+    "slug": "it-takes-two",
+    "name": "双人成行",
+    "platform": "Nintendo Switch",
+    "enabled": true,
+    "merchant_ids": {
+      "laolieren": {
+        "game_id": ""
+      },
+      "huoqiangshou": {
+        "game_id": ""
+      },
+      "hailuo": {
+        "game_id": ""
+      },
+      "hangzhouxizi": {
+        "game_id": ""
+      },
+      "baibiandui": {
+        "game_id": ""
+      }
+    }
+  },
+  {
+    "slug": "dave-the-diver",
+    "name": "潜水员戴夫",
+    "platform": "Nintendo Switch",
+    "enabled": true,
+    "merchant_ids": {
+      "laolieren": {
+        "game_id": ""
+      },
+      "huoqiangshou": {
+        "game_id": ""
+      },
+      "hailuo": {
+        "game_id": ""
+      },
+      "hangzhouxizi": {
+        "game_id": ""
+      },
+      "baibiandui": {
+        "game_id": ""
+      }
+    }
+  },
+  {
+    "slug": "tomodachi-life-living-the-dream",
+    "name": "朋友聚会",
+    "platform": "Nintendo Switch",
+    "enabled": true,
+    "merchant_ids": {
+      "laolieren": {
+        "game_id": ""
+      },
+      "huoqiangshou": {
+        "game_id": ""
+      },
+      "hailuo": {
+        "game_id": ""
+      },
+      "hangzhouxizi": {
+        "game_id": ""
+      },
+      "baibiandui": {
+        "game_id": ""
+      }
+    }
+  },
+  {
+    "slug": "super-mario-party-jamboree-tv-ns2",
+    "name": "NS2 空前盛会 TV",
+    "platform": "Nintendo Switch 2",
+    "enabled": true,
+    "merchant_ids": {
+      "laolieren": {
+        "game_id": ""
+      },
+      "huoqiangshou": {
+        "game_id": ""
+      },
+      "hailuo": {
+        "game_id": ""
+      },
+      "hangzhouxizi": {
+        "game_id": ""
+      },
+      "baibiandui": {
+        "game_id": ""
+      }
+    }
+  },
+  {
+    "slug": "zelda-tears-of-the-kingdom-ns2",
+    "name": "NS2 王国之泪",
+    "platform": "Nintendo Switch 2",
+    "enabled": true,
+    "merchant_ids": {
+      "laolieren": {
+        "game_id": ""
+      },
+      "huoqiangshou": {
+        "game_id": ""
+      },
+      "hailuo": {
+        "game_id": ""
+      },
+      "hangzhouxizi": {
+        "game_id": ""
+      },
+      "baibiandui": {
+        "game_id": ""
+      }
+    }
+  },
+  {
+    "slug": "zelda-breath-of-the-wild-ns2",
+    "name": "NS2 旷野之息",
+    "platform": "Nintendo Switch 2",
+    "enabled": true,
+    "merchant_ids": {
+      "laolieren": {
+        "game_id": ""
+      },
+      "huoqiangshou": {
+        "game_id": ""
+      },
+      "hailuo": {
+        "game_id": ""
+      },
+      "hangzhouxizi": {
+        "game_id": ""
+      },
+      "baibiandui": {
+        "game_id": ""
+      }
+    }
+  },
+  {
+    "slug": "donkey-kong-bananza",
+    "name": "NS2 大金刚 蕉力全开",
+    "platform": "Nintendo Switch 2",
+    "enabled": true,
+    "merchant_ids": {
+      "laolieren": {
+        "game_id": ""
+      },
+      "huoqiangshou": {
+        "game_id": ""
+      },
+      "hailuo": {
+        "game_id": ""
+      },
+      "hangzhouxizi": {
+        "game_id": ""
+      },
+      "baibiandui": {
+        "game_id": ""
+      }
+    }
+  },
+  {
+    "slug": "mario-kart-world",
+    "name": "NS2 马车世界",
+    "platform": "Nintendo Switch 2",
+    "enabled": true,
+    "merchant_ids": {
+      "laolieren": {
+        "game_id": ""
+      },
+      "huoqiangshou": {
+        "game_id": ""
+      },
+      "hailuo": {
+        "game_id": ""
+      },
+      "hangzhouxizi": {
+        "game_id": ""
+      },
+      "baibiandui": {
+        "game_id": ""
+      }
+    }
+  },
+  {
+    "slug": "cyberpunk-2077-ns2",
+    "name": "NS2 赛博朋克 2077",
+    "platform": "Nintendo Switch 2",
+    "enabled": true,
+    "merchant_ids": {
+      "laolieren": {
+        "game_id": ""
+      },
+      "huoqiangshou": {
+        "game_id": ""
+      },
+      "hailuo": {
+        "game_id": ""
+      },
+      "hangzhouxizi": {
+        "game_id": ""
+      },
+      "baibiandui": {
+        "game_id": ""
+      }
+    }
+  },
+  {
+    "slug": "kirby-star-world-ns2",
+    "name": "NS2 卡比星耀世界",
+    "platform": "Nintendo Switch 2",
+    "enabled": true,
+    "merchant_ids": {
+      "laolieren": {
+        "game_id": ""
+      },
+      "huoqiangshou": {
+        "game_id": ""
+      },
+      "hailuo": {
+        "game_id": ""
+      },
+      "hangzhouxizi": {
+        "game_id": ""
+      },
+      "baibiandui": {
+        "game_id": ""
+      }
+    }
+  },
+  {
+    "slug": "pokemon-pokopia",
+    "name": "NS2 Pokopia",
+    "platform": "Nintendo Switch 2",
+    "enabled": true,
+    "merchant_ids": {
+      "laolieren": {
+        "game_id": ""
+      },
+      "huoqiangshou": {
+        "game_id": ""
+      },
+      "hailuo": {
+        "game_id": ""
+      },
+      "hangzhouxizi": {
+        "game_id": ""
+      },
+      "baibiandui": {
+        "game_id": ""
+      }
+    }
+  },
+  {
+    "slug": "hyrule-warriors-age-of-imprisonment",
+    "name": "NS2 塞尔达无双 封印战记",
+    "platform": "Nintendo Switch 2",
+    "enabled": true,
+    "merchant_ids": {
+      "laolieren": {
+        "game_id": ""
+      },
+      "huoqiangshou": {
+        "game_id": ""
+      },
+      "hailuo": {
+        "game_id": ""
+      },
+      "hangzhouxizi": {
+        "game_id": ""
+      },
+      "baibiandui": {
+        "game_id": ""
+      }
+    }
+  },
+  {
+    "slug": "kirby-air-riders",
+    "name": "NS2 卡比的御天飞行",
+    "platform": "Nintendo Switch 2",
+    "enabled": true,
+    "merchant_ids": {
+      "laolieren": {
+        "game_id": ""
+      },
+      "huoqiangshou": {
+        "game_id": ""
+      },
+      "hailuo": {
+        "game_id": ""
+      },
+      "hangzhouxizi": {
+        "game_id": ""
+      },
+      "baibiandui": {
+        "game_id": ""
+      }
+    }
+  }
+]
