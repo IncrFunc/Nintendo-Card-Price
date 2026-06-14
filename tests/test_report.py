@@ -1,6 +1,6 @@
 import json
 
-from nsg_price.report import PIL_AVAILABLE, build_today_price_table, generate_report
+from nsg_price.report import PIL_AVAILABLE, build_today_price_table, generate_report, lttb_downsample
 
 
 def test_generate_report_svg_pages(tmp_path, monkeypatch):
@@ -139,3 +139,49 @@ def test_today_report_does_not_drop_games_after_26(tmp_path, monkeypatch):
     trend_svgs = [path for path in outputs if path.suffix == ".svg" and "trend" in path.name]
     assert len(today_svgs) == 2
     assert len(trend_svgs) == 5
+
+
+def test_trend_chart_uses_axis_price_labels_and_downsampling(tmp_path, monkeypatch):
+    prices_path = tmp_path / "prices.json"
+    records = []
+    for index in range(30):
+        hour = 9 if index % 2 == 0 else 15
+        day = index // 2 + 1
+        records.append(
+            {
+                "merchant": "laolieren",
+                "merchant_name": "老猎人",
+                "game_slug": "zelda",
+                "game_name": "塞尔达",
+                "recycle_price": 180 + ((index * 7) % 31),
+                "status": "ok",
+                "session": "am" if hour < 12 else "pm",
+                "fetched_at": f"2026-06-{day:02d}T{hour:02d}:55:00+08:00",
+            }
+        )
+    prices_path.write_text(json.dumps(records, ensure_ascii=False), encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    config = {
+        "settings": {"storage": {"prices_json": str(prices_path)}},
+        "merchants": {"laolieren": {"name": "老猎人"}},
+        "games": [{"slug": "zelda", "name": "塞尔达", "enabled": True}],
+    }
+
+    generate_report(config, target_date="2026-06-15")
+
+    trend_svg = (tmp_path / "data" / "reports" / "2026-06-15" / "02_trend.svg").read_text(encoding="utf-8")
+    assert "30 次→12 点" in trend_svg
+    assert 'text-anchor="end">¥' in trend_svg
+    assert trend_svg.count('<circle') <= 12
+    assert "06-01 上午" in trend_svg
+    assert "06-15 下午" in trend_svg
+
+
+def test_lttb_downsample_keeps_first_and_last():
+    series = [(f"2026-06-{index:02d}", f"06-{index:02d}", float(index % 7)) for index in range(1, 40)]
+
+    sampled = lttb_downsample(series, max_points=12)
+
+    assert len(sampled) == 12
+    assert sampled[0] == series[0]
+    assert sampled[-1] == series[-1]

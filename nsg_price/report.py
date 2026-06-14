@@ -21,6 +21,7 @@ except ImportError:  # pragma: no cover - optional PNG output.
 
 COLORS = ["#0f766e", "#2563eb", "#c2410c", "#7c3aed", "#be123c", "#15803d"]
 MERCHANT_ORDER = ["laolieren", "huoqiangshou", "hailuo", "baibiandui", "hangzhouxizi"]
+TREND_MAX_POINTS = 12
 FONT_REGULAR_CANDIDATES = [
     "C:/Windows/Fonts/msyh.ttc",
     "C:/Windows/Fonts/simhei.ttf",
@@ -336,6 +337,55 @@ def polyline_points(series: list[tuple[str, float]], x: int, y: int, width: int,
     return " ".join(points)
 
 
+def lttb_downsample(series: list[tuple[str, str, float]], max_points: int = TREND_MAX_POINTS) -> list[tuple[str, str, float]]:
+    if len(series) <= max_points:
+        return series
+    if max_points < 3:
+        return [series[0], series[-1]]
+
+    sampled = [series[0]]
+    bucket_size = (len(series) - 2) / (max_points - 2)
+    anchor_index = 0
+    for bucket in range(max_points - 2):
+        range_start = int(1 + bucket * bucket_size)
+        range_end = int(1 + (bucket + 1) * bucket_size)
+        range_end = min(range_end, len(series) - 1)
+        next_start = int(1 + (bucket + 1) * bucket_size)
+        next_end = int(1 + (bucket + 2) * bucket_size)
+        next_end = min(next_end, len(series))
+        next_bucket = series[next_start:next_end] or [series[-1]]
+        avg_x = sum(range(next_start, next_start + len(next_bucket))) / len(next_bucket)
+        avg_y = sum(item[2] for item in next_bucket) / len(next_bucket)
+        anchor_x = anchor_index
+        anchor_y = series[anchor_index][2]
+        candidates = series[range_start:range_end] or [series[range_start]]
+        best_index = range_start
+        best_area = -1.0
+        for offset, item in enumerate(candidates):
+            candidate_index = range_start + offset
+            area = abs((anchor_x - avg_x) * (item[2] - anchor_y) - (anchor_x - candidate_index) * (avg_y - anchor_y))
+            if area > best_area:
+                best_area = area
+                best_index = candidate_index
+        sampled.append(series[best_index])
+        anchor_index = best_index
+    sampled.append(series[-1])
+    return sampled
+
+
+def y_axis_ticks(min_v: float, max_v: float, count: int = 4) -> list[float]:
+    if max_v < min_v:
+        min_v, max_v = max_v, min_v
+    if max_v == min_v:
+        return [max_v + 1, max_v, max_v - 1]
+    return [max_v - idx * (max_v - min_v) / (count - 1) for idx in range(count)]
+
+
+def y_for_value(value: float, chart_y: int, chart_h: int, min_v: float, max_v: float) -> float:
+    span = max(max_v - min_v, 1)
+    return chart_y + chart_h - (value - min_v) / span * chart_h
+
+
 def generate_trend_page(records: list[dict[str, Any]], games: list[dict[str, Any]], page_no: int, output: Path) -> None:
     parts = [
         svg_text(54, 74, "回收价走势", 38, 760),
@@ -347,12 +397,13 @@ def generate_trend_page(records: list[dict[str, Any]], games: list[dict[str, Any
         panel_y = 154 + row * 385
         panel_w = 470
         panel_h = 330
-        chart_x = panel_x + 32
+        chart_x = panel_x + 64
         chart_y = panel_y + 104
-        chart_w = panel_w - 64
+        chart_w = panel_w - 96
         chart_h = 150
         series = trend_average_series(records, game["slug"])
-        plot_series = [(label, value) for _, label, value in series]
+        sampled_series = lttb_downsample(series)
+        plot_series = [(label, value) for _, label, value in sampled_series]
         values = [value for _, _, value in series]
         min_v = min(values) if values else 0
         max_v = max(values) if values else 1
@@ -361,26 +412,32 @@ def generate_trend_page(records: list[dict[str, Any]], games: list[dict[str, Any
         name = game["name"][:17] + ("…" if len(game["name"]) > 17 else "")
         parts.append(svg_text(panel_x + 24, panel_y + 46, name, 23, 720))
         latest = f"¥{series[-1][2]:.0f}" if series else "暂无"
-        if series:
-            latest = f"¥{series[-1][2]:.0f}"
         parts.append(svg_text(panel_x + panel_w - 24, panel_y + 46, latest, 23, 760, color, "end"))
-        parts.append(svg_text(panel_x + 24, panel_y + 78, f"最高 ¥{max_v:.0f} · 最低 ¥{min_v:.0f}" if series else "暂无历史价格", 17, 500, "#64748b"))
-        for grid_idx in range(3):
-            gy = chart_y + grid_idx * chart_h / 2
+        if series:
+            delta = series[-1][2] - series[0][2]
+            sign = "+" if delta >= 0 else ""
+            subtitle = f"趋势 {len(series)} 次→{len(sampled_series)} 点 · Δ {sign}¥{delta:.0f}"
+        else:
+            subtitle = "暂无历史价格"
+        parts.append(svg_text(panel_x + 24, panel_y + 78, subtitle, 17, 500, "#64748b"))
+        for tick in y_axis_ticks(min_v, max_v):
+            gy = y_for_value(tick, chart_y, chart_h, min_v, max_v)
             parts.append(f'<line x1="{chart_x}" y1="{gy:.1f}" x2="{chart_x + chart_w}" y2="{gy:.1f}" stroke="#e5e7eb"/>')
+            parts.append(svg_text(chart_x - 8, int(gy + 5), f"¥{tick:.0f}", 13, 600, "#94a3b8", "end"))
         points = polyline_points(plot_series, chart_x, chart_y, chart_w, chart_h, min_v, max_v)
         if points:
             parts.append(f'<polyline points="{points}" fill="none" stroke="{color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>')
-            for point, (_, value) in zip(points.split(), plot_series):
+            for point in points.split():
                 px, py = point.split(",")
                 parts.append(f'<circle cx="{px}" cy="{py}" r="5" fill="{color}"/>')
-                label_y = float(py) - 10 if float(py) > chart_y + 22 else float(py) + 24
-                parts.append(svg_text(int(float(px)), int(label_y), f"¥{value:.0f}", 14, 700, color, "middle"))
         else:
             parts.append(svg_text(chart_x + chart_w / 2, chart_y + 88, "暂无历史价格", 20, 600, "#94a3b8", "middle"))
         if series:
-            parts.append(svg_text(chart_x, chart_y + chart_h + 34, series[0][1], 16, 500, "#94a3b8"))
-            parts.append(svg_text(chart_x + chart_w, chart_y + chart_h + 34, series[-1][1], 16, 500, "#94a3b8", "end"))
+            parts.append(svg_text(chart_x, chart_y + chart_h + 34, sampled_series[0][1], 16, 500, "#94a3b8"))
+            if len(sampled_series) > 2:
+                mid = sampled_series[len(sampled_series) // 2]
+                parts.append(svg_text(chart_x + chart_w / 2, chart_y + chart_h + 34, mid[1], 16, 500, "#94a3b8", "middle"))
+            parts.append(svg_text(chart_x + chart_w, chart_y + chart_h + 34, sampled_series[-1][1], 16, 500, "#94a3b8", "end"))
     write_svg(output, "\n".join(parts))
 
 
@@ -404,11 +461,12 @@ def generate_trend_png(records: list[dict[str, Any]], games: list[dict[str, Any]
         panel_y = 154 + row * 385
         panel_w = 470
         panel_h = 330
-        chart_x = panel_x + 32
+        chart_x = panel_x + 64
         chart_y = panel_y + 104
-        chart_w = panel_w - 64
+        chart_w = panel_w - 96
         chart_h = 150
         series = trend_average_series(records, game["slug"])
+        sampled_series = lttb_downsample(series)
         values = [value for _, _, value in series]
         min_v = min(values) if values else 0
         max_v = max(values) if values else 1
@@ -418,13 +476,19 @@ def generate_trend_png(records: list[dict[str, Any]], games: list[dict[str, Any]
         png_text(draw, (panel_x + 24, panel_y + 25), name, 23, "#172033", bold=True)
         latest = f"¥{series[-1][2]:.0f}" if series else "暂无"
         png_text(draw, (panel_x + panel_w - 24, panel_y + 25), latest, 23, color, bold=True, anchor="ra")
-        subtitle = f"最高 ¥{max_v:.0f} · 最低 ¥{min_v:.0f}" if series else "暂无历史价格"
-        png_text(draw, (panel_x + 24, panel_y + 62), subtitle, 17, "#64748b")
-        for grid_idx in range(3):
-            gy = chart_y + round(grid_idx * chart_h / 2)
-            draw.line((chart_x, gy, chart_x + chart_w, gy), fill="#e5e7eb", width=2)
         if series:
-            points = [scale_point(i, len(series), value, chart_x, chart_y, chart_w, chart_h, min_v, max_v) for i, (_, _, value) in enumerate(series)]
+            delta = series[-1][2] - series[0][2]
+            sign = "+" if delta >= 0 else ""
+            subtitle = f"趋势 {len(series)} 次→{len(sampled_series)} 点 · Δ {sign}¥{delta:.0f}"
+        else:
+            subtitle = "暂无历史价格"
+        png_text(draw, (panel_x + 24, panel_y + 62), subtitle, 17, "#64748b")
+        for tick in y_axis_ticks(min_v, max_v):
+            gy = round(y_for_value(tick, chart_y, chart_h, min_v, max_v))
+            draw.line((chart_x, gy, chart_x + chart_w, gy), fill="#e5e7eb", width=2)
+            png_text(draw, (chart_x - 8, gy - 8), f"¥{tick:.0f}", 13, "#94a3b8", bold=True, anchor="ra")
+        if series:
+            points = [scale_point(i, len(sampled_series), value, chart_x, chart_y, chart_w, chart_h, min_v, max_v) for i, (_, _, value) in enumerate(sampled_series)]
             if len(points) == 1:
                 x, y = points[0]
                 draw.ellipse((x - 6, y - 6, x + 6, y + 6), fill=color)
@@ -432,11 +496,11 @@ def generate_trend_png(records: list[dict[str, Any]], games: list[dict[str, Any]
                 draw.line(points, fill=color, width=4, joint="curve")
                 for x, y in points:
                     draw.ellipse((x - 5, y - 5, x + 5, y + 5), fill=color)
-            for (x, y), (_, _, value) in zip(points, series):
-                label_y = y - 23 if y > chart_y + 24 else y + 10
-                png_text(draw, (x, label_y), f"¥{value:.0f}", 13, color, bold=True, anchor="ma")
-            png_text(draw, (chart_x, chart_y + chart_h + 22), series[0][1], 16, "#94a3b8")
-            png_text(draw, (chart_x + chart_w, chart_y + chart_h + 22), series[-1][1], 16, "#94a3b8", anchor="ra")
+            png_text(draw, (chart_x, chart_y + chart_h + 22), sampled_series[0][1], 16, "#94a3b8")
+            if len(sampled_series) > 2:
+                mid = sampled_series[len(sampled_series) // 2]
+                png_text(draw, (chart_x + chart_w // 2, chart_y + chart_h + 22), mid[1], 16, "#94a3b8", anchor="ma")
+            png_text(draw, (chart_x + chart_w, chart_y + chart_h + 22), sampled_series[-1][1], 16, "#94a3b8", anchor="ra")
         else:
             png_text(draw, (chart_x + chart_w // 2, chart_y + 72), "暂无历史价格", 20, "#94a3b8", bold=True, anchor="ma")
     output.parent.mkdir(parents=True, exist_ok=True)

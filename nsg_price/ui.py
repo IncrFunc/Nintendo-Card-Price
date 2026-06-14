@@ -214,6 +214,43 @@ INDEX_HTML = r"""<!doctype html>
     .sidebar-top .panel {
       margin-bottom: 0;
     }
+    .merchant-switch-panel {
+      border-color: rgba(240, 194, 164, .5);
+      background: linear-gradient(145deg, rgba(255,253,249,.98), rgba(248,223,207,.92));
+    }
+    .compact-merchants {
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .compact-merchants .merchant {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 86px;
+      gap: 8px;
+      align-items: center;
+      padding: 10px;
+      border-radius: 14px;
+    }
+    .compact-merchants .merchant-head {
+      margin: 0;
+      min-width: 0;
+    }
+    .compact-merchants .merchant h3 {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .compact-merchants label {
+      gap: 0;
+      font-size: 0;
+    }
+    .compact-merchants select {
+      min-height: 34px;
+      padding: 6px 8px;
+      border-radius: 10px;
+    }
+    .compact-merchants .hint {
+      display: none;
+    }
     .games {
       display: grid;
       gap: 10px;
@@ -549,6 +586,12 @@ INDEX_HTML = r"""<!doctype html>
             <input id="filter" placeholder="搜索游戏">
           </div>
         </div>
+        <div class="panel merchant-switch-panel">
+          <div class="panel-title">回收商总开关</div>
+          <div class="panel-note">接口异常时先在这里关闭对应回收商，采集和自动匹配会立刻跳过。</div>
+          <span id="merchantStatus" class="status soft">等待操作</span>
+          <div id="merchantSettings" class="merchant-grid compact-merchants"></div>
+        </div>
       </div>
       <div id="games" class="games"></div>
     </aside>
@@ -569,17 +612,6 @@ INDEX_HTML = r"""<!doctype html>
               <span>匹配结果和商家 ID 在同一区域，不需要来回滚动找位置。</span>
             </div>
           </div>
-        </div>
-
-        <div class="panel">
-          <div class="panel-header">
-            <div>
-              <h2 class="panel-title">回收商开关</h2>
-              <div class="panel-note">关闭某个回收商后，采集、覆盖率和自动匹配都会跳过它；适合接口失效或临时维护时使用。</div>
-            </div>
-            <span id="merchantStatus" class="status soft">等待操作</span>
-          </div>
-          <div id="merchantSettings" class="merchant-grid"></div>
         </div>
 
         <div class="editor-columns">
