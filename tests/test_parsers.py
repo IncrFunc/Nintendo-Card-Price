@@ -16,7 +16,7 @@ def test_huoqiangshou_parser_receive_price():
             "apprize": {
                 "data": {
                     "listProductQuestion": [
-                        {"answers": [{}, {"reducePrice": "18"}]}
+                        {"answers": [{}, {"name": "别店购买", "reducePrice": "18"}]}
                     ]
                 }
             },
@@ -54,7 +54,7 @@ def test_huoqiangshou_parser_uses_other_shop_answer_by_name():
     assert parsed.recycle_price == 200.0
 
 
-def test_huoqiangshou_parser_falls_back_to_receive_price_when_other_shop_reduce_missing():
+def test_huoqiangshou_parser_marks_unavailable_when_other_shop_reduce_missing():
     parsed = PARSERS["huoqiangshou"](
         {
             "detail": {
@@ -68,10 +68,10 @@ def test_huoqiangshou_parser_falls_back_to_receive_price_when_other_shop_reduce_
             "apprize": {"data": {"listProductQuestion": []}},
         }
     )
-    assert parsed.status == "ok"
-    assert parsed.recycle_price == 280.0
+    assert parsed.status == "unavailable"
+    assert parsed.recycle_price is None
     assert parsed.sell_price == 300.0
-    assert parsed.parser_note == "huoqiangshou fallback recycle_price=detail.data.receivePrice"
+    assert parsed.parser_note == "huoqiangshou no other-shop recycle option"
 
 
 @pytest.mark.parametrize("parser_name", ["hangzhouxizi"])

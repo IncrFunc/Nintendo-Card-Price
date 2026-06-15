@@ -8,3 +8,9 @@ def test_merchant_switch_is_collapsed_sidebar_control():
     assert "position: sticky;" not in INDEX_HTML.split(".sidebar-top", 1)[1].split(".sidebar-top .panel", 1)[0]
     assert ".merchant-switch-panel {" in INDEX_HTML
     assert "color: var(--text);" in INDEX_HTML
+
+
+def test_search_results_allow_manual_candidate_apply():
+    assert 'data-candidate-select="' in INDEX_HTML
+    assert 'data-apply-candidate="' in INDEX_HTML
+    assert '"/api/search/apply"' in INDEX_HTML

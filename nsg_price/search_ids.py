@@ -314,6 +314,7 @@ def search_keywords_for_game(game: dict[str, Any]) -> list[str]:
     name = str(game.get("name") or "").strip()
     if name:
         values.append(name)
+        values.extend(search_name_fragments(name))
     for group in MATCH_RULES.get(str(game.get("slug") or ""), []):
         values.extend(str(item) for item in group if str(item).strip())
     seen: set[str] = set()
@@ -324,6 +325,20 @@ def search_keywords_for_game(game: dict[str, Any]) -> list[str]:
             keywords.append(keyword)
             seen.add(keyword.lower())
     return keywords
+
+
+def search_name_fragments(name: str) -> list[str]:
+    fragments = []
+    cleaned = re.sub(r"[【】\[\]（）()]", " ", name)
+    for item in re.split(r"[\s:：,，/／\-]+", cleaned):
+        item = item.strip()
+        if len(item) >= 2 and item.lower() not in {"ns", "ns2", "switch", "switch2"}:
+            fragments.append(item)
+    if "三国无双" in name:
+        fragments.append("三国无双")
+    if "马里奥派对" in name:
+        fragments.append("马里奥派对")
+    return fragments
 
 
 def rows_at(payload: Any, paths: list[tuple[str, ...]]) -> list[dict[str, Any]]:

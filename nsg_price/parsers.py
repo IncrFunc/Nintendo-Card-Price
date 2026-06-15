@@ -208,7 +208,7 @@ def huoqiangshou_other_shop_reduce(apprize: dict[str, Any]) -> float | None:
                 reduce_price = as_money(answer.get("reducePrice"))
                 if reduce_price is not None:
                     return reduce_price
-    return as_money(get_path(apprize, "data.listProductQuestion.0.answers.1.reducePrice"))
+    return None
 
 
 def parse_huoqiangshou(data: dict[str, Any]) -> ParsedPrice:
@@ -226,9 +226,9 @@ def parse_huoqiangshou(data: dict[str, Any]) -> ParsedPrice:
             item_id=str(first_value(detail, ITEM_ID_PATHS)) if first_value(detail, ITEM_ID_PATHS) is not None else None,
             sku_id=None,
             sell_price=as_money(detail_data.get("retailPrice")),
-            recycle_price=receive_price,
-            status="ok",
-            parser_note="huoqiangshou fallback recycle_price=detail.data.receivePrice",
+            recycle_price=None,
+            status="unavailable",
+            parser_note="huoqiangshou no other-shop recycle option",
         )
 
     name = first_value(detail, NAME_PATHS)

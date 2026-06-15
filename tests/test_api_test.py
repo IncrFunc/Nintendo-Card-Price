@@ -1,7 +1,7 @@
 from nsg_price import api_test
 
 
-def test_api_test_uses_receive_price_fallback_when_other_shop_reduce_missing(monkeypatch):
+def test_api_test_marks_huoqiangshou_unavailable_when_other_shop_reduce_missing(monkeypatch):
     config = {
         "settings": {"request": {}},
         "games": [
@@ -43,6 +43,6 @@ def test_api_test_uses_receive_price_fallback_when_other_shop_reduce_missing(mon
 
     results = api_test.test_configured_apis(config)
 
-    assert results[0]["status"] == "ok"
-    assert results[0]["recycle_price"] == 280.0
-    assert results[0]["parser_note"] == "huoqiangshou fallback recycle_price=detail.data.receivePrice"
+    assert results[0]["status"] == "unavailable"
+    assert results[0]["recycle_price"] is None
+    assert results[0]["parser_note"] == "huoqiangshou no other-shop recycle option"

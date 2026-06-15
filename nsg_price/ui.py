@@ -1026,16 +1026,23 @@ INDEX_HTML = r"""<!doctype html>
         return;
       }
       $("matchSummary").textContent = selectedMatchSummary();
-      state.matches.forEach((item) => {
+      state.matches.forEach((item, index) => {
         const best = item.best || {};
+        const candidates = item.candidates || [];
+        const candidateOptions = candidates.map((candidate, candidateIndex) => {
+          const label = `${text(candidate.matched_name)} · ID ${text(candidate.game_id)} · ${text(candidate.confidence)}`;
+          return `<option value="${candidateIndex}" ${candidateIndex === 0 ? "selected" : ""}>${label}</option>`;
+        }).join("");
         const display = matchDisplay(item);
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>${merchantNames[item.merchant] || item.merchant}</td>
           <td class="text-center"><span class="pill ${display.tone}">${display.label}</span></td>
-          <td>${display.action}</td>
           <td>
-            <div class="match-name">${text(best.matched_name || item.search_error || "-")}</div>
+            <button type="button" data-apply-candidate="${index}" ${candidates.length ? "" : "disabled"}>写入此项</button>
+          </td>
+          <td>
+            ${candidates.length ? `<select data-candidate-select="${index}">${candidateOptions}</select>` : `<div class="match-name">${text(item.search_error || "-")}</div>`}
             <div class="match-sub">${item.raw_count ? `候选 ${item.raw_count} 条` : "没有可用候选"}</div>
           </td>
           <td class="text-right">${text(best.game_id || "-")}</td>
@@ -1043,6 +1050,32 @@ INDEX_HTML = r"""<!doctype html>
         `;
         $("matches").appendChild(tr);
       });
+      $("matches").querySelectorAll("button[data-apply-candidate]").forEach((button) => {
+        button.onclick = () => applyCandidate(Number(button.dataset.applyCandidate));
+      });
+    }
+
+    async function applyCandidate(index) {
+      const item = state.matches[index];
+      const select = $("matches").querySelector(`select[data-candidate-select="${index}"]`);
+      const candidate = item?.candidates?.[Number(select?.value || 0)];
+      if (!item || !candidate) return;
+      setStatus("searchStatus", "info", `正在写入 ${merchantNames[item.merchant] || item.merchant} 的候选 ID...`);
+      try {
+        await api("/api/search/apply", {
+          method: "POST",
+          body: JSON.stringify({
+            game_slug: item.game_slug,
+            merchant: item.merchant,
+            game_id: candidate.game_id,
+            uuid: candidate.uuid || "",
+          }),
+        });
+        setStatus("searchStatus", "ok", "候选 ID 已写入。");
+        await load();
+      } catch (error) {
+        setStatus("searchStatus", "warn", error.message);
+      }
     }
 
     $("reloadBtn").onclick = load;
@@ -1127,6 +1160,20 @@ class GameManagerHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
         try:
+            if parsed.path == "/api/search/apply":
+                payload = self.read_json()
+                game_slug = str(payload.get("game_slug") or "").strip()
+                merchant = str(payload.get("merchant") or "").strip()
+                game_id = str(payload.get("game_id") or "").strip()
+                uuid = str(payload.get("uuid") or "").strip()
+                if not game_slug or not merchant or not game_id:
+                    self.send_json({"error": "game_slug, merchant and game_id are required"}, status=400)
+                    return
+                config = load_config(self.config_path, resolve_env_vars=False)
+                set_id(config, slug=game_slug, merchant=merchant, game_id=game_id, uuid=uuid or None)
+                save_config(config, self.config_path)
+                self.send_json({"game_slug": game_slug, "merchant": merchant, "game_id": game_id})
+                return
             if parsed.path == "/api/games/reorder":
                 payload = self.read_json()
                 slug = str(payload.get("slug") or "").strip()

@@ -46,6 +46,16 @@ def test_search_keywords_include_rules_and_custom_keyword():
     assert "塞尔达传说 王国之泪" in keywords
 
 
+def test_search_keywords_include_core_fragments_for_long_titles():
+    dynasty = search_keywords_for_game({"slug": "dynasty-warriors", "name": "真三国无双 起源"})
+    mario_party = search_keywords_for_game({"slug": "mario-party", "name": "超级马里奥派对 空前盛会"})
+
+    assert "三国无双" in dynasty
+    assert "起源" in dynasty
+    assert "马里奥派对" in mario_party
+    assert "空前盛会" in mario_party
+
+
 def test_build_and_apply_search_matches(monkeypatch):
     config = {
         "settings": {"request": {}},
