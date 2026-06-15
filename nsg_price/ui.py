@@ -125,7 +125,7 @@ INDEX_HTML = r"""<!doctype html>
     }
     main {
       display: grid;
-      grid-template-columns: minmax(310px, 380px) minmax(0, 1fr);
+      grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
       min-height: calc(100vh - 144px);
       height: calc(100vh - 144px);
     }
@@ -140,8 +140,8 @@ INDEX_HTML = r"""<!doctype html>
       height: 100%;
     }
     section {
-      padding: 26px 24px 30px;
-      overflow: auto;
+      padding: 18px 20px 22px;
+      overflow: hidden;
       height: 100%;
     }
     .toolbar, .row {
@@ -382,15 +382,15 @@ INDEX_HTML = r"""<!doctype html>
       grid-template-columns: minmax(0, 1fr);
       gap: 18px;
       align-content: start;
+      height: 100%;
+      min-height: 0;
     }
     .editor-hero {
-      position: sticky;
-      top: 0;
       z-index: 1;
       display: grid;
       gap: 14px;
-      margin: -26px -24px 0;
-      padding: 26px 24px 18px;
+      margin: -18px -20px 0;
+      padding: 18px 20px 12px;
       background:
         linear-gradient(180deg, rgba(235,231,223,.96) 0%, rgba(235,231,223,.92) 74%, rgba(235,231,223,0) 100%);
       backdrop-filter: blur(12px);
@@ -399,14 +399,14 @@ INDEX_HTML = r"""<!doctype html>
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 10px;
-      padding: 14px;
+      padding: 10px;
       border: 1px solid rgba(215, 204, 188, .95);
       border-radius: 18px;
       background: rgba(255, 253, 249, .92);
       box-shadow: var(--shadow);
     }
     .workflow-step {
-      padding: 10px 12px;
+      padding: 8px 10px;
       border-radius: 14px;
       background: linear-gradient(135deg, rgba(244,239,230,.95), rgba(255,255,255,.85));
       border: 1px solid rgba(215, 204, 188, .85);
@@ -423,9 +423,11 @@ INDEX_HTML = r"""<!doctype html>
     }
     .editor-columns {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(320px, 34%);
+      grid-template-columns: minmax(220px, .72fr) minmax(300px, 1fr) minmax(300px, .95fr);
       gap: 18px;
       align-items: start;
+      min-height: 0;
+      overflow: hidden;
     }
     .editor-main,
     .editor-side {
@@ -433,9 +435,34 @@ INDEX_HTML = r"""<!doctype html>
       gap: 18px;
       align-content: start;
     }
+    .editor-main {
+      display: contents;
+    }
     .editor-side {
-      position: sticky;
-      top: 150px;
+      min-height: 0;
+      max-height: calc(100vh - 258px);
+      overflow: auto;
+      padding-right: 4px;
+    }
+    .basic-panel,
+    .ids-panel,
+    .search-panel,
+    .match-panel {
+      margin-bottom: 0;
+    }
+    .basic-panel,
+    .ids-panel {
+      max-height: calc(100vh - 258px);
+      overflow: auto;
+    }
+    .ids-panel {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+    .ids-panel .merchant-grid {
+      min-height: 0;
+      overflow: auto;
+      padding-right: 4px;
     }
     .panel-header {
       display: flex;
@@ -465,13 +492,13 @@ INDEX_HTML = r"""<!doctype html>
     }
     .merchant-grid {
       display: grid;
-      grid-template-columns: 1fr;
-      gap: 14px;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 10px;
     }
     .merchant {
       border: 1px solid rgba(215, 204, 188, .95);
       border-radius: 18px;
-      padding: 14px;
+      padding: 12px;
       background: linear-gradient(180deg, rgba(255,255,255,.92), rgba(244,239,230,.85));
     }
     .merchant h3 {
@@ -543,7 +570,15 @@ INDEX_HTML = r"""<!doctype html>
     }
     .compact-table th,
     .compact-table td {
-      padding: 10px 10px;
+      padding: 9px 8px;
+    }
+    .match-scroll {
+      overflow: auto;
+      max-height: calc(100vh - 470px);
+      min-height: 210px;
+      border: 1px solid rgba(215, 204, 188, .65);
+      border-radius: 16px;
+      background: rgba(255,255,255,.45);
     }
     table {
       width: 100%;
@@ -574,8 +609,31 @@ INDEX_HTML = r"""<!doctype html>
       header { align-items: flex-start; }
       .editor-columns,
       .workflow-card { grid-template-columns: 1fr; }
-      .editor-side { position: static; }
-      .editor-hero { margin: -26px -24px 0; }
+      section { overflow: auto; }
+      .editor-main { display: grid; }
+      .editor-side,
+      .basic-panel,
+      .ids-panel {
+        max-height: none;
+        overflow: visible;
+      }
+      .editor-hero { margin: -18px -20px 0; }
+      .match-scroll { max-height: none; }
+    }
+    @media (min-width: 861px) and (max-width: 1260px) {
+      .editor-columns {
+        grid-template-columns: minmax(260px, .85fr) minmax(360px, 1.15fr);
+        overflow: auto;
+      }
+      .editor-main { display: contents; }
+      .editor-side {
+        grid-column: 1 / -1;
+        max-height: none;
+        overflow: visible;
+        display: grid;
+        grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr);
+      }
+      .match-scroll { max-height: 360px; }
     }
   </style>
 </head>
@@ -650,7 +708,7 @@ INDEX_HTML = r"""<!doctype html>
 
         <div class="editor-columns">
           <div class="editor-main">
-            <div class="panel">
+            <div class="panel basic-panel">
               <div class="panel-header">
                 <div>
                   <h2 class="panel-title">基础信息</h2>
@@ -684,7 +742,7 @@ INDEX_HTML = r"""<!doctype html>
               </div>
             </div>
 
-            <div class="panel">
+            <div class="panel ids-panel">
               <div class="panel-header">
                 <div>
                   <h2 class="panel-title">商家商品 ID</h2>
@@ -696,7 +754,7 @@ INDEX_HTML = r"""<!doctype html>
           </div>
 
           <div class="editor-side">
-            <div class="panel">
+            <div class="panel search-panel">
               <div class="panel-header">
                 <div>
                   <h2 class="panel-title">采集匹配</h2>
@@ -715,14 +773,14 @@ INDEX_HTML = r"""<!doctype html>
               </div>
             </div>
 
-            <div class="panel">
+            <div class="panel match-panel">
               <div class="panel-header">
                 <div>
                   <h2 class="panel-title">匹配结果</h2>
                   <div class="panel-note">右侧直接看候选和建议动作，确认后立刻回填左边商家卡。</div>
                 </div>
               </div>
-              <div style="overflow:auto; max-height: 50vh;">
+              <div class="match-scroll">
                 <table class="compact-table">
                   <thead>
                     <tr>
