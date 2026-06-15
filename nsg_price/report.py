@@ -20,7 +20,7 @@ except ImportError:  # pragma: no cover - optional PNG output.
 
 
 COLORS = ["#0f766e", "#2563eb", "#c2410c", "#7c3aed", "#be123c", "#15803d"]
-MERCHANT_ORDER = ["laolieren", "huoqiangshou", "hailuo", "baibiandui", "hangzhouxizi"]
+MERCHANT_ORDER = ["laolieren", "huoqiangshou", "hailuo", "mogushijian", "baibiandui", "hangzhouxizi"]
 TREND_MAX_POINTS = 12
 TREND_LOOKBACK_DAYS = 365
 FONT_REGULAR_CANDIDATES = [
@@ -39,6 +39,7 @@ FONT_BOLD_CANDIDATES = [
 TODAY_TABLE_TOP = 204
 TODAY_TABLE_BOTTOM = 1342
 TODAY_TABLE_PAGE_SIZE = 28
+TODAY_MERCHANT_LIMIT = 6
 
 
 def normalize_session(value: str | None) -> str | None:
@@ -242,6 +243,10 @@ def today_column_centers(merchant_count: int) -> tuple[int, list[int]]:
     return (name_left + name_right) // 2, merchant_centers
 
 
+def today_highlight_half_width(merchant_count: int) -> int:
+    return 40 if merchant_count >= 6 else 46
+
+
 def generate_today_png(config: dict[str, Any], records: list[dict[str, Any]], target_date: str, output: Path, session: str | None = None) -> None:
     if not PIL_AVAILABLE:
         return
@@ -255,10 +260,11 @@ def generate_today_png(config: dict[str, Any], records: list[dict[str, Any]], ta
     png_text(draw, (54, 96), subtitle, 22, "#64748b")
     draw.rounded_rectangle((40, 140, 1040, 1360), radius=18, fill="#ffffff", outline="#e5e7eb", width=1)
     x_name = 64
-    _, merchant_x = today_column_centers(min(len(merchants), 5))
+    merchant_limit = min(len(merchants), TODAY_MERCHANT_LIMIT)
+    _, merchant_x = today_column_centers(merchant_limit)
     header_y = 168
     png_text(draw, (x_name, header_y), "卡带", 22, "#334155", bold=True, anchor="lm")
-    for idx, (_, merchant_name) in enumerate(merchants[:5]):
+    for idx, (_, merchant_name) in enumerate(merchants[:merchant_limit]):
         png_text(draw, (merchant_x[idx], header_y), merchant_name[:4], 20, "#334155", bold=True, anchor="mm")
     layout = today_table_layout(len(games))
     y = TODAY_TABLE_TOP
@@ -269,15 +275,16 @@ def generate_today_png(config: dict[str, Any], records: list[dict[str, Any]], ta
             draw.rounded_rectangle((52, y - stripe_h // 2, 1028, y + stripe_h // 2), radius=6, fill="#f8fafc")
         y += row_h
     y = TODAY_TABLE_TOP
-    merchant_keys = [merchant_key for merchant_key, _ in merchants[:5]]
+    merchant_keys = [merchant_key for merchant_key, _ in merchants[:merchant_limit]]
+    highlight_half = today_highlight_half_width(merchant_limit)
     for index, game in enumerate(games):
         highest_merchants = highest_merchants_for_game(latest, game["slug"], merchant_keys)
         name = truncate_text(game.get("name", ""), layout["name_limit"])
         png_text(draw, (x_name, y), name, layout["name_font"], anchor="lm")
-        for idx, (merchant_key, _) in enumerate(merchants[:5]):
+        for idx, (merchant_key, _) in enumerate(merchants[:merchant_limit]):
             is_highest = merchant_key in highest_merchants
             if is_highest:
-                draw.rounded_rectangle((merchant_x[idx] - 46, y - row_h // 2 + 3, merchant_x[idx] + 46, y + row_h // 2 - 3), radius=8, fill="#fef3c7")
+                draw.rounded_rectangle((merchant_x[idx] - highlight_half, y - row_h // 2 + 3, merchant_x[idx] + highlight_half, y + row_h // 2 - 3), radius=8, fill="#fef3c7")
             png_text(
                 draw,
                 (merchant_x[idx], y),
@@ -304,17 +311,19 @@ def generate_today_page(config: dict[str, Any], records: list[dict[str, Any]], t
         '<rect x="40" y="140" width="1000" height="1220" rx="18" fill="#ffffff" stroke="#e5e7eb"/>',
     ]
     x_name = 64
-    _, merchant_x = today_column_centers(min(len(merchants), 5))
+    merchant_limit = min(len(merchants), TODAY_MERCHANT_LIMIT)
+    _, merchant_x = today_column_centers(merchant_limit)
     header_y = 170
     parts.append(svg_text(x_name, header_y, "卡带", 22, 700, "#334155"))
-    for idx, (_, merchant_name) in enumerate(merchants[:5]):
+    for idx, (_, merchant_name) in enumerate(merchants[:merchant_limit]):
         parts.append(svg_text(merchant_x[idx], header_y, merchant_name[:4], 20, 700, "#334155", "middle"))
     layout = today_table_layout(len(games))
     y = TODAY_TABLE_TOP + 28
     row_h = layout["row_h"]
     backgrounds = []
     texts = []
-    merchant_keys = [merchant_key for merchant_key, _ in merchants[:5]]
+    merchant_keys = [merchant_key for merchant_key, _ in merchants[:merchant_limit]]
+    highlight_half = today_highlight_half_width(merchant_limit)
     for index, game in enumerate(games):
         highest_merchants = highest_merchants_for_game(latest, game["slug"], merchant_keys)
         if index % 2 == 0:
@@ -322,10 +331,10 @@ def generate_today_page(config: dict[str, Any], records: list[dict[str, Any]], t
             backgrounds.append(f'<rect x="52" y="{y - stripe_h}" width="976" height="{stripe_h}" rx="6" fill="#f8fafc"/>')
         name = truncate_text(game.get("name", ""), layout["name_limit"])
         texts.append(svg_text(x_name, y, name, layout["name_font"], 500))
-        for idx, (merchant_key, _) in enumerate(merchants[:5]):
+        for idx, (merchant_key, _) in enumerate(merchants[:merchant_limit]):
             is_highest = merchant_key in highest_merchants
             if is_highest:
-                backgrounds.append(f'<rect x="{merchant_x[idx] - 46}" y="{y - row_h + 6}" width="92" height="{max(row_h - 8, 14)}" rx="8" fill="#fef3c7"/>')
+                backgrounds.append(f'<rect x="{merchant_x[idx] - highlight_half}" y="{y - row_h + 6}" width="{highlight_half * 2}" height="{max(row_h - 8, 14)}" rx="8" fill="#fef3c7"/>')
             texts.append(
                 svg_text(
                     merchant_x[idx],

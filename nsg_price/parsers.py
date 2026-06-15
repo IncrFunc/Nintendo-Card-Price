@@ -331,10 +331,40 @@ def parse_baibiandui(data: dict[str, Any]) -> ParsedPrice:
     )
 
 
+def parse_mogushijian(data: dict[str, Any]) -> ParsedPrice:
+    specs = data.get("specList")
+    if not isinstance(specs, list):
+        raise ParserError("mogushijian missing specList")
+
+    selected = None
+    for spec in specs:
+        if isinstance(spec, dict) and spec.get("name") == "二手盒装":
+            selected = spec
+            break
+    if selected is None:
+        selected = next((spec for spec in specs if isinstance(spec, dict) and spec.get("recyclePrice") is not None), None)
+    if selected is None:
+        raise ParserError("mogushijian missing boxed second-hand spec")
+
+    recycle_price = as_money(selected.get("recyclePrice"))
+    if recycle_price is None:
+        raise ParserError("mogushijian missing specList.recyclePrice")
+
+    return ParsedPrice(
+        game_name=str(data.get("name")) if data.get("name") is not None else None,
+        item_id=str(data.get("cardsId")) if data.get("cardsId") is not None else None,
+        sku_id=str(selected.get("withPacket")) if selected.get("withPacket") is not None else None,
+        sell_price=as_money(selected.get("buyPrice") or selected.get("price")),
+        recycle_price=recycle_price,
+        parser_note=f"recycle_price=specList[{selected.get('name') or 'first_available'}].recyclePrice",
+    )
+
+
 PARSERS: dict[str, Callable[[dict[str, Any]], ParsedPrice]] = {
     "laolieren": parse_laolieren,
     "huoqiangshou": parse_huoqiangshou,
     "hailuo": parse_hailuo,
     "hangzhouxizi": parse_hangzhouxizi,
     "baibiandui": parse_baibiandui,
+    "mogushijian": parse_mogushijian,
 }

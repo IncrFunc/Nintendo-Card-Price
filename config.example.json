@@ -204,6 +204,43 @@
         "name_path": "data.title",
         "item_id_path": "data.id"
       }
+    },
+    "mogushijian": {
+      "name": "蘑菇时间",
+      "enabled": true,
+      "parser": "mogushijian",
+      "requires_env": [
+        "MOGUSHIJIAN_TOKEN"
+      ],
+      "endpoint": {
+        "method": "POST",
+        "url": "https://api.mogushijian.com/alia/used/specInfo",
+        "headers": {
+          "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 MicroMessenger/7.0.20.1781(0x6700143B) NetType/WIFI MiniProgramEnv/Windows WindowsWechat/WMPF WindowsWechat(0x63090a13) UnifiedPCWindowsWechat(0xf2541a34) XWEB/19977",
+          "xweb_xhr": "1",
+          "content-type": "application/json",
+          "alianame": "${MOGUSHIJIAN_ALIANAME:alia2}",
+          "Token": "${MOGUSHIJIAN_TOKEN}",
+          "accept": "*/*",
+          "sec-fetch-site": "cross-site",
+          "sec-fetch-mode": "cors",
+          "sec-fetch-dest": "empty",
+          "referer": "${MOGUSHIJIAN_REFERER:https://servicewechat.com/wx95e68e4fbf89d3f7/3/page-frame.html}",
+          "accept-encoding": "gzip, deflate, br",
+          "accept-language": "zh-CN,zh;q=0.9"
+        },
+        "json": {
+          "cardsId": "{{game_id}}",
+          "type": 2
+        }
+      },
+      "price_rules": {
+        "calculation": "specList[name=二手盒装].recyclePrice; fallback first spec recyclePrice",
+        "sell_price_path": "specList[].buyPrice",
+        "recycle_price_path": "specList[].recyclePrice",
+        "name_path": "name",
+        "item_id_path": "cardsId"
+      }
     }
   }
 }

@@ -1,7 +1,7 @@
 import json
 from datetime import date, timedelta
 
-from nsg_price.report import PIL_AVAILABLE, build_today_price_table, generate_report, lttb_downsample, today_column_centers, trend_average_series
+from nsg_price.report import PIL_AVAILABLE, build_today_price_table, generate_report, lttb_downsample, today_column_centers, today_highlight_half_width, trend_average_series
 
 
 def test_generate_report_svg_pages(tmp_path, monkeypatch):
@@ -77,9 +77,12 @@ def test_today_table_marks_highest_recycle_price():
 def test_today_columns_spread_visible_merchants_evenly():
     _, four_columns = today_column_centers(4)
     _, five_columns = today_column_centers(5)
+    _, six_columns = today_column_centers(6)
 
     assert four_columns == [526, 658, 790, 922]
     assert five_columns == [513, 618, 724, 830, 935]
+    assert six_columns == [504, 592, 680, 768, 856, 944]
+    assert today_highlight_half_width(6) == 40
 
 
 def test_today_table_can_filter_by_session():

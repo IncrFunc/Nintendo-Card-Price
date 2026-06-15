@@ -21,10 +21,16 @@ def test_normalize_search_records_for_captured_shapes():
         {"data": {"list": [{"id": 1882, "name": "NS2游戏 星之卡比 卡比的飞天骑士 驭天飞行者"}]}},
         uuid="uuid-xizi",
     )
+    mogushijian = normalize_search_records(
+        "mogushijian",
+        {"list": [{"cardsId": 2500, "name": "塞尔达传说：旷野之息", "price": 212, "generationType": 1}]},
+    )
 
     assert laolieren[0]["item_id"] == "3174"
     assert hailuo[0]["name"] == "NS 星之卡比 探索发现"
     assert xizi[0]["uuid"] == "uuid-xizi"
+    assert mogushijian[0]["item_id"] == "2500"
+    assert mogushijian[0]["name"] == "塞尔达传说：旷野之息"
 
 
 def test_search_keywords_include_rules_and_custom_keyword():

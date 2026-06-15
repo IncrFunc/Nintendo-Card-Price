@@ -122,6 +122,25 @@ def test_baibiandui_parser_handles_second_hand_price_fields():
     assert parsed.recycle_price == 225.0
 
 
+def test_mogushijian_parser_prefers_boxed_recycle_price():
+    parsed = PARSERS["mogushijian"](
+        {
+            "cardsId": 6854,
+            "name": "超级马里奥：奥德赛",
+            "specList": [
+                {"name": "二手盒装", "price": 245, "buyPrice": 245, "recyclePrice": 210, "withPacket": 1},
+                {"name": "二手裸卡", "price": 245, "buyPrice": 245, "recyclePrice": 200, "withPacket": 2},
+            ],
+        }
+    )
+
+    assert parsed.game_name == "超级马里奥：奥德赛"
+    assert parsed.item_id == "6854"
+    assert parsed.sku_id == "1"
+    assert parsed.sell_price == 245.0
+    assert parsed.recycle_price == 210.0
+
+
 def test_parser_raises_when_price_missing():
     with pytest.raises(ParserError):
         PARSERS["baibiandui"]({"data": {"id": "x", "name": "No price"}})

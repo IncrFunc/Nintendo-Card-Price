@@ -14,7 +14,7 @@ from .config_tools import set_id
 from .constants import DEFAULT_XIZI_UUID
 from .utils import write_json
 
-SEARCH_MERCHANTS = ("laolieren", "huoqiangshou", "hailuo", "hangzhouxizi", "baibiandui")
+SEARCH_MERCHANTS = ("laolieren", "huoqiangshou", "hailuo", "hangzhouxizi", "baibiandui", "mogushijian")
 MINI_HEADERS = {
     "cb-lang": "zh-CN",
     "appid": "wx7f7b845076caaf81",
@@ -121,6 +121,26 @@ def hangzhouxizi_headers(recyclexcx: str | None = None) -> dict[str, str]:
     return headers
 
 
+def mogushijian_headers(token: str | None = None) -> dict[str, str]:
+    headers = {
+        "user-agent": MINI_HEADERS["user-agent"],
+        "xweb_xhr": "1",
+        "content-type": "application/json",
+        "alianame": os.getenv("MOGUSHIJIAN_ALIANAME") or "alia2",
+        "accept": "*/*",
+        "sec-fetch-site": "cross-site",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-dest": "empty",
+        "referer": os.getenv("MOGUSHIJIAN_REFERER") or "https://servicewechat.com/wx95e68e4fbf89d3f7/3/page-frame.html",
+        "accept-encoding": "gzip, deflate, br",
+        "accept-language": "zh-CN,zh;q=0.9",
+    }
+    resolved_token = token or os.getenv("MOGUSHIJIAN_TOKEN") or ""
+    if resolved_token:
+        headers["Token"] = resolved_token
+    return headers
+
+
 def huoqiangshou_headers() -> dict[str, str]:
     return {
         "terminal": "WECHAT",
@@ -158,6 +178,21 @@ def parse_baibiandui_list_item(item: dict[str, Any]) -> dict[str, Any] | None:
     if not item_id or not name:
         return None
     return {"merchant": "baibiandui", "item_id": str(item_id), "name": str(name), "platform": item.get("brandName") or item.get("platform")}
+
+
+def parse_mogushijian_list_item(item: dict[str, Any]) -> dict[str, Any] | None:
+    item_id = item.get("cardsId")
+    name = item.get("name")
+    if not item_id or not name:
+        return None
+    return {
+        "merchant": "mogushijian",
+        "item_id": str(item_id),
+        "name": str(name),
+        "platform": "Nintendo Switch 2" if str(item.get("generationType")) == "2" else "Nintendo Switch",
+        "sell_price": item.get("price"),
+        "en_name": item.get("enName"),
+    }
 
 
 def normalize(text: str) -> str:
@@ -354,6 +389,9 @@ def normalize_search_records(merchant: str, payload: dict[str, Any], uuid: str |
     elif merchant == "baibiandui":
         rows = rows_at(payload, [("data", "list"), ("data", "rows"), ("rows",), ("data",)])
         parser = parse_baibiandui_list_item
+    elif merchant == "mogushijian":
+        rows = rows_at(payload, [("list",), ("data", "list"), ("data", "rows"), ("rows",), ("data",)])
+        parser = parse_mogushijian_list_item
     elif merchant == "hailuo":
         rows = rows_at(payload, [("data",), ("data", "list"), ("data", "rows"), ("rows",)])
         parser = parse_hailuo_search_item
@@ -456,6 +494,14 @@ def request_search_payload(
             "https://api.recycle.steamlease.cn/commodity/getCommodityListPage",
             headers=hangzhouxizi_headers(),
             json={"uuid": uuid or DEFAULT_XIZI_UUID, "classify_id": "", "name": keyword, "pageNum": page, "pageSize": page_size},
+            timeout=timeout,
+            verify=False,
+        )
+    elif merchant == "mogushijian":
+        response = session.post(
+            "https://api.mogushijian.com/alia/used/search",
+            headers=mogushijian_headers(),
+            json={"name": keyword, "page": page, "type": 2},
             timeout=timeout,
             verify=False,
         )
