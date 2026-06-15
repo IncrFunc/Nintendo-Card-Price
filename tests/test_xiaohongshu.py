@@ -7,3 +7,6 @@ def test_xhs_publish_click_verifies_completion():
     assert "_publish_button_still_visible" in source
     assert "bottom publish button is still visible" in source
     assert "确认发布" in source
+    assert "_human_type" in source
+    assert "BODY_TYPE_DELAY_RANGE" in source
+    assert "dispatchEvent(new MouseEvent" in source

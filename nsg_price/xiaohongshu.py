@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import random
 import re
 import subprocess
 import time
@@ -15,6 +16,8 @@ from .publish import normalize_session
 from .utils import load_json
 
 PUBLISH_URL = "https://creator.xiaohongshu.com/publish/publish?source=official"
+BODY_TYPE_DELAY_RANGE = (28, 58)
+TAG_TYPE_DELAY_RANGE = (55, 95)
 
 
 @dataclass(frozen=True)
@@ -145,6 +148,11 @@ async def _upload_images(page: Any, images: list[Path]) -> None:
     await page.wait_for_timeout(5000)
 
 
+async def _human_type(page: Any, text: str, delay_range: tuple[int, int]) -> None:
+    for char in text:
+        await page.keyboard.type(char, delay=random.randint(*delay_range))
+
+
 async def _fill_title_and_body(page: Any, title: str, body: str) -> None:
     main_body, tags = split_body_and_tags(body)
     visible_inputs = page.locator('input[type="text"]:visible')
@@ -158,12 +166,12 @@ async def _fill_title_and_body(page: Any, title: str, body: str) -> None:
     editor = page.locator(".tiptap.ProseMirror").first
     await editor.click(timeout=10000)
     await page.keyboard.press("Control+A")
-    await page.keyboard.type(main_body, delay=1)
+    await _human_type(page, main_body, BODY_TYPE_DELAY_RANGE)
     if tags:
         await page.keyboard.press("Enter")
         await page.keyboard.press("Enter")
     for tag in tags:
-        await page.keyboard.type(f"#{tag}", delay=1)
+        await _human_type(page, f"#{tag}", TAG_TYPE_DELAY_RANGE)
         await page.wait_for_timeout(900)
         await page.keyboard.press("Enter")
         await page.wait_for_timeout(300)
@@ -181,11 +189,11 @@ async def _click_publish_button(page: Any) -> None:
     await page.wait_for_timeout(700)
 
     async def click_visible_button(kind: str) -> bool:
-        button_box = await page.evaluate(
+        clicked = await page.evaluate(
             """(kind) => {
               const visible = (r) => r.width > 0 && r.height > 0 && r.y >= 0 && r.y < innerHeight;
-              const isRed = (color) => /rgb\\((25[0-5]|24\\d|23\\d),\\s*(0|[1-9]\\d),\\s*(3\\d|4\\d|5\\d|6\\d)\\)/.test(color);
-              const disabled = (el, s) => el.disabled || el.getAttribute('aria-disabled') === 'true' || s.pointerEvents === 'none' || s.opacity === '0.5';
+              const isRed = (color) => /rgb\\((25[0-5]|24\\d|23\\d),\\s*(0|[1-9]\\d),\\s*(3\\d|4\\d|5\\d|6\\d)\\)/.test(color) || /#?ff2442/i.test(color);
+              const disabled = (el, s) => el.disabled || el.getAttribute('aria-disabled') === 'true' || s.pointerEvents === 'none' || Number(s.opacity || 1) < 0.45;
               const candidates = [...document.querySelectorAll('button, [role=button], div, span')]
                 .map((el) => {
                   const r = el.getBoundingClientRect();
@@ -206,21 +214,29 @@ async def _click_publish_button(page: Any) -> None:
                   text === '发布' &&
                   r.width >= 90 && r.width <= 260 &&
                   r.height >= 34 && r.height <= 80 &&
-                  r.y > innerHeight * 0.62 &&
-                  isRed(s.backgroundColor)
+                  r.y > innerHeight * 0.55
                 );
               }
-              filtered.sort((a, b) => (b.r.y - a.r.y) || (b.r.width * b.r.height - a.r.width * a.r.height));
+              filtered.sort((a, b) => {
+                if (kind === 'confirm') {
+                  const aExact = a.text === '确认发布' || a.text === '确定' || a.text === '继续发布';
+                  const bExact = b.text === '确认发布' || b.text === '确定' || b.text === '继续发布';
+                  if (aExact !== bExact) return bExact - aExact;
+                }
+                return (b.r.y - a.r.y) || (b.r.width * b.r.height - a.r.width * a.r.height);
+              });
               const hit = filtered[0];
-              if (!hit) return null;
-              return { x: hit.r.x + hit.r.width / 2, y: hit.r.y + hit.r.height / 2, text: hit.text };
+              if (!hit) return false;
+              hit.el.scrollIntoView({ block: 'center', inline: 'center' });
+              hit.el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true, view: window }));
+              hit.el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+              hit.el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+              hit.el.click();
+              return true;
             }""",
             kind,
         )
-        if not button_box:
-            return False
-        await page.mouse.click(button_box["x"], button_box["y"])
-        return True
+        return bool(clicked)
 
     clicked = await click_visible_button("publish")
     if not clicked:
@@ -253,8 +269,11 @@ async def _click_publish_button(page: Any) -> None:
             # Fallback for the current creator layout: bottom action bar, red publish button.
             viewport = page.viewport_size or {"width": 1700, "height": 840}
             await page.mouse.click(viewport["width"] * 0.5, viewport["height"] - 44)
-    await page.wait_for_timeout(1500)
-    await click_visible_button("confirm")
+    await page.wait_for_timeout(2200)
+    for _ in range(3):
+        if not await click_visible_button("confirm"):
+            break
+        await page.wait_for_timeout(1800)
     await page.wait_for_timeout(8000)
 
 
@@ -262,7 +281,6 @@ async def _publish_button_still_visible(page: Any) -> bool:
     return bool(
         await page.evaluate(
             """() => {
-              const isRed = (color) => /rgb\\((25[0-5]|24\\d|23\\d),\\s*(0|[1-9]\\d),\\s*(3\\d|4\\d|5\\d|6\\d)\\)/.test(color);
               return [...document.querySelectorAll('button, [role=button], div, span')].some((el) => {
                 const r = el.getBoundingClientRect();
                 const s = getComputedStyle(el);
@@ -270,10 +288,10 @@ async def _publish_button_still_visible(page: Any) -> bool:
                 return text === '发布' &&
                   r.width >= 90 && r.width <= 260 &&
                   r.height >= 34 && r.height <= 80 &&
-                  r.y > innerHeight * 0.62 &&
+                  r.y > innerHeight * 0.55 &&
                   r.width > 0 && r.height > 0 &&
                   s.pointerEvents !== 'none' &&
-                  isRed(s.backgroundColor);
+                  Number(s.opacity || 1) >= 0.45;
               });
             }"""
         )
