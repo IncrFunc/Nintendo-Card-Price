@@ -234,9 +234,11 @@ def png_text(draw: Any, xy: tuple[int, int], text: str, size: int = 24, fill: st
 def today_column_centers(merchant_count: int) -> tuple[int, list[int]]:
     name_left = 64
     name_right = 408
-    column_gap = 120
-    merchant_start = 470
-    merchant_centers = [merchant_start + idx * column_gap for idx in range(merchant_count)]
+    price_left = 460
+    price_right = 988
+    count = max(merchant_count, 1)
+    column_width = (price_right - price_left) / count
+    merchant_centers = [round(price_left + column_width * (idx + 0.5)) for idx in range(merchant_count)]
     return (name_left + name_right) // 2, merchant_centers
 
 
