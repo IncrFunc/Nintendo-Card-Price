@@ -18,6 +18,9 @@ from .utils import load_json
 PUBLISH_URL = "https://creator.xiaohongshu.com/publish/publish?source=official"
 BODY_TYPE_DELAY_RANGE = (28, 58)
 TAG_TYPE_DELAY_RANGE = (55, 95)
+OPEN_BEFORE_UPLOAD_MS = 5000
+AFTER_UPLOAD_BEFORE_COPY_MS = 10000
+TAG_INTERVAL_MS = 1000
 
 
 @dataclass(frozen=True)
@@ -145,12 +148,16 @@ async def _activate_image_tab(page: Any) -> None:
 async def _upload_images(page: Any, images: list[Path]) -> None:
     file_input = page.locator("input[type=file]").first
     await file_input.set_input_files([str(path.resolve()) for path in images])
-    await page.wait_for_timeout(5000)
+    await page.wait_for_timeout(AFTER_UPLOAD_BEFORE_COPY_MS)
 
 
 async def _human_type(page: Any, text: str, delay_range: tuple[int, int]) -> None:
     for char in text:
         await page.keyboard.type(char, delay=random.randint(*delay_range))
+
+
+async def _insert_text(page: Any, text: str) -> None:
+    await page.keyboard.insert_text(text)
 
 
 async def _fill_title_and_body(page: Any, title: str, body: str) -> None:
@@ -166,15 +173,15 @@ async def _fill_title_and_body(page: Any, title: str, body: str) -> None:
     editor = page.locator(".tiptap.ProseMirror").first
     await editor.click(timeout=10000)
     await page.keyboard.press("Control+A")
-    await _human_type(page, main_body, BODY_TYPE_DELAY_RANGE)
+    await _insert_text(page, main_body)
     if tags:
         await page.keyboard.press("Enter")
         await page.keyboard.press("Enter")
     for tag in tags:
-        await _human_type(page, f"#{tag}", TAG_TYPE_DELAY_RANGE)
-        await page.wait_for_timeout(900)
+        await _insert_text(page, f"#{tag}")
+        await page.wait_for_timeout(TAG_INTERVAL_MS)
         await page.keyboard.press("Enter")
-        await page.wait_for_timeout(300)
+        await page.wait_for_timeout(TAG_INTERVAL_MS)
     await page.wait_for_timeout(1200)
 
 
@@ -352,6 +359,7 @@ async def _xhs_publish_async(
         browser = await p.chromium.connect_over_cdp(f"http://127.0.0.1:{port}")
         page = await _find_publish_page(browser)
         await _activate_image_tab(page)
+        await page.wait_for_timeout(OPEN_BEFORE_UPLOAD_MS)
         await _upload_images(page, images)
         await _fill_title_and_body(page, title, body)
 

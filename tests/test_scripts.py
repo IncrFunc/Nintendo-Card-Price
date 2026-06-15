@@ -6,8 +6,8 @@ def test_windows_task_scripts_define_expected_schedule():
     run_script = Path("scripts/run_fetch.ps1").read_text(encoding="utf-8")
 
     assert "NintendoGamePrice" in register_script
-    assert "10:00" in register_script
-    assert "16:00" in register_script
+    assert "09:50" in register_script
+    assert "15:50" in register_script
     assert "Register-ScheduledTask" in register_script
     assert "run_fetch.ps1" in register_script
 

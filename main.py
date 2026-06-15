@@ -18,7 +18,7 @@ from nsg_price.paths import api_test_results_path, doctor_report_path, publish_r
 from nsg_price.publish import build_publish_pack
 from nsg_price.report import generate_report
 from nsg_price.search_ids import apply_search_matches, build_search_matches, write_search_match_outputs
-from nsg_price.storage import export_csv
+from nsg_price.storage import export_csv, migrate_legacy_prices_to_shards
 from nsg_price.utils import write_json
 from nsg_price.xiaohongshu import launch_edge_for_xhs, publish_to_xiaohongshu
 
@@ -129,6 +129,12 @@ def cmd_export_csv(args: argparse.Namespace) -> None:
     config = load_config(args.config)
     output = export_csv(config["settings"]["storage"]["prices_json"], config["settings"]["storage"]["csv_dir"])
     print(f"csv exported: {output}")
+
+
+def cmd_migrate_prices(args: argparse.Namespace) -> None:
+    config = load_config(args.config)
+    result = migrate_legacy_prices_to_shards(config["settings"]["storage"]["prices_json"], keep_backup=not args.no_backup)
+    print(f"prices migrated: records={result['migrated']}, shard_dir={result['shard_dir']}, backup={result['backup']}")
 
 
 def cmd_report(args: argparse.Namespace) -> None:
@@ -353,6 +359,10 @@ def build_parser() -> argparse.ArgumentParser:
     export_parser = subparsers.add_parser("export-csv", help="export data/prices.json to CSV")
     export_parser.set_defaults(func=cmd_export_csv)
 
+    migrate_prices = subparsers.add_parser("migrate-prices", help="migrate legacy prices.json into daily JSONL shards")
+    migrate_prices.add_argument("--no-backup", action="store_true", help="do not keep a timestamped prices.json backup")
+    migrate_prices.set_defaults(func=cmd_migrate_prices)
+
     report_parser = subparsers.add_parser("report", help="generate Xiaohongshu-style SVG report pages")
     report_parser.add_argument("--date", help="YYYY-MM-DD; defaults to today")
     report_parser.add_argument("--session", choices=["am", "pm"], help="collection session to render")
@@ -397,8 +407,12 @@ def build_parser() -> argparse.ArgumentParser:
     auto_publish.set_defaults(func=cmd_auto_publish)
 
     auto = subparsers.add_parser("auto", help="run daily Python automation loop")
-    auto.add_argument("--fetch-time", action="append", help="HH:MM fetch time; default 09:55 and 15:55")
-    auto.add_argument("--publish-time", action="append", help="HH:MM Xiaohongshu publish time; default 10:00 and 16:00")
+    auto.add_argument("--fetch-time", action="append", help="HH:MM fetch time; default 09:50 and 15:50")
+    auto.add_argument(
+        "--publish-time",
+        action="append",
+        help="HH:MM or HH:MM-HH:MM Xiaohongshu publish window; default 10:00-10:10 and 16:00-16:10",
+    )
     auto.add_argument("--port", type=int, default=9223, help="Edge remote debugging port")
     auto.add_argument("--launch-edge", action="store_true", help="launch Edge with remote debugging when publishing")
     auto.add_argument("--profile-dir", help="Edge user-data-dir to use with --launch-edge")

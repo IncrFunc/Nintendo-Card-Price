@@ -3,7 +3,8 @@
 这个目录现在只保留当前主流程真正会用到的内容。历史离线 `id` 表扫描链路已经移除，项目只保留“直接搜索商家接口并写入 `game_id`”这条主线。
 
 - 核心真数据
-- `prices.json`：历史采集价格，报表和走势图都从这里读取。
+- `prices.json`：旧版历史采集价格，仍会兼容读取。
+- `prices/YYYY-MM-DD.jsonl`：新版按日期追加写入的采集价格，避免长期把单个 JSON 文件撑大。
 - `games.json`：当前维护的游戏清单，包含启停状态和各回收商 `game_id`。
 - `games.example.json`：示例游戏清单，配合 `config.example.json` 使用。
 
@@ -20,4 +21,4 @@
 
 可删除但会自动再生成的内容：`reports/`、`publish/`、`charts/`、`runtime/`。
 
-不要手动改 `prices.json`，除非是在修正明确的错误采集记录。
+不要手动改 `prices.json` 或 `prices/*.jsonl`，除非是在修正明确的错误采集记录。

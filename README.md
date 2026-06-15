@@ -24,10 +24,10 @@ python main.py auto --ui --launch-edge
 默认时间：
 
 ```text
-09:55 采集并生成上午发布包
-10:00 自动发布上午小红书
-15:55 采集并生成下午发布包
-16:00 自动发布下午小红书
+09:50 采集并生成上午发布包
+10:00-10:10 随机一分钟自动发布上午小红书
+15:50 采集并生成下午发布包
+16:00-16:10 随机一分钟自动发布下午小红书
 ```
 
 首次使用前，先启动可控 Edge 并登录小红书：
@@ -81,7 +81,8 @@ python main.py xhs-publish --session am --publish
 ## 数据目录
 
 ```text
-data/prices.json                  原始采集记录
+data/prices.json                  旧版原始采集记录（兼容读取）
+data/prices/YYYY-MM-DD.jsonl      新版按日期追加的原始采集记录
 data/reports/<date>/am|pm/         上午/下午报表图片
 data/publish/<date>/am|pm/         上午/下午发布清单和文案
 data/runtime/                      临时诊断输出

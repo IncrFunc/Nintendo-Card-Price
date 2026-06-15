@@ -2,8 +2,12 @@
   "settings": {
     "timezone": "Asia/Shanghai",
     "daily_fetch_times": [
-      "09:55",
-      "15:55"
+      "09:50",
+      "15:50"
+    ],
+    "daily_publish_windows": [
+      "10:00-10:10",
+      "16:00-16:10"
     ],
     "request": {
       "timeout_seconds": 10,

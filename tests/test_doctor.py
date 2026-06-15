@@ -5,7 +5,7 @@ def test_doctor_report_summarizes_tokens_ids_and_reports(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("HAILUO_AUTHORIZATION", raising=False)
     config = {
-        "settings": {"daily_fetch_times": ["09:55", "15:55"]},
+        "settings": {"daily_fetch_times": ["09:50", "15:50"]},
         "merchants": {
             "laolieren": {"name": "老猎人", "enabled": True},
             "hailuo": {"name": "海螺", "enabled": True, "requires_env": ["HAILUO_AUTHORIZATION"]},
@@ -40,14 +40,14 @@ def test_doctor_report_summarizes_tokens_ids_and_reports(tmp_path, monkeypatch):
     )
 
     report = build_doctor_report(config, target_date="2026-06-06")
-    assert report["daily_fetch_times"] == ["09:55", "15:55"]
+    assert report["daily_fetch_times"] == ["09:50", "15:50"]
     assert report["required_env"] == {"HAILUO_AUTHORIZATION": False}
     assert report["id_coverage"]["filled"] == 1
     assert report["id_coverage"]["total_slots"] == 2
     assert report["report"]["png_count"] == 2
     assert report["report"]["expected_png_count"] == 2
     assert "01_today_prices.svg" in report["report"]["missing_expected"]
-    assert report["task_readiness"]["checks"]["schedule_has_0955_and_1555"]["ok"] is True
+    assert report["task_readiness"]["checks"]["schedule_has_0950_and_1550"]["ok"] is True
     assert report["task_readiness"]["checks"]["today_table_covers_enabled_games"]["ok"] is True
     assert report["task_readiness"]["checks"]["trend_data_covers_enabled_games"]["ok"] is True
     assert report["task_readiness"]["checks"]["trend_pages_hold_six_games_each"]["ok"] is True

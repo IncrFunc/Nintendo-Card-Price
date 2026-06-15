@@ -150,7 +150,7 @@ def generate_chart(config: dict[str, Any], game_slug: str) -> Path:
     <section class="top">
       <div>
         <h1>{game_name} 回收价走势</h1>
-        <p class="sub">每天每个回收商取最新回收价，再计算当日商家均价。数据源：data/prices.json</p>
+        <p class="sub">每天每个回收商取最新回收价，再计算当日商家均价。数据源：data/prices.json + data/prices/*.jsonl</p>
       </div>
       <div class="current">
         <span>当天最新平均价</span>

@@ -8,6 +8,8 @@ __pycache__/
 logs/
 *.pyc
 data/prices.json
+data/prices/
+data/prices.json.*.bak
 data/reports/
 data/publish/
 data/runtime/

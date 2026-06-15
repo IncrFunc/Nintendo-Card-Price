@@ -113,7 +113,7 @@ def task_readiness(config: dict[str, Any], target_date: str | None = None, sessi
     manifest_images_exist = bool(manifest_images) and all(path.exists() for path in manifest_images)
 
     checks = {
-        "schedule_has_0955_and_1555": {"ok": {"09:55", "15:55"}.issubset(set(schedule_status(config)))},
+        "schedule_has_0950_and_1550": {"ok": {"09:50", "15:50"}.issubset(set(schedule_status(config)))},
         "today_table_covers_enabled_games": {
             "ok": bool(game_slugs) and today_slugs == game_slugs,
             "rows": len(today_rows) if isinstance(today_rows, list) else 0,
@@ -148,7 +148,11 @@ def task_readiness(config: dict[str, Any], target_date: str | None = None, sessi
 
 def schedule_status(config: dict[str, Any]) -> list[str]:
     settings = config.get("settings", {})
-    return list(settings.get("daily_fetch_times") or [settings.get("daily_fetch_time", "10:00")])
+    if settings.get("daily_fetch_times"):
+        return list(settings["daily_fetch_times"])
+    if settings.get("daily_fetch_time"):
+        return [settings["daily_fetch_time"]]
+    return ["09:50", "15:50"]
 
 
 def build_doctor_report(config: dict[str, Any], target_date: str | None = None, session: str | None = None) -> dict[str, Any]:
