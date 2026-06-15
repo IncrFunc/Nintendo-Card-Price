@@ -179,7 +179,52 @@ async def _click_publish_button(page: Any) -> None:
         }"""
     )
     await page.wait_for_timeout(700)
-    button_box = await page.evaluate(
+
+    async def click_visible_button(kind: str) -> bool:
+        button_box = await page.evaluate(
+            """(kind) => {
+              const visible = (r) => r.width > 0 && r.height > 0 && r.y >= 0 && r.y < innerHeight;
+              const isRed = (color) => /rgb\\((25[0-5]|24\\d|23\\d),\\s*(0|[1-9]\\d),\\s*(3\\d|4\\d|5\\d|6\\d)\\)/.test(color);
+              const disabled = (el, s) => el.disabled || el.getAttribute('aria-disabled') === 'true' || s.pointerEvents === 'none' || s.opacity === '0.5';
+              const candidates = [...document.querySelectorAll('button, [role=button], div, span')]
+                .map((el) => {
+                  const r = el.getBoundingClientRect();
+                  const s = getComputedStyle(el);
+                  const text = (el.innerText || el.textContent || '').trim();
+                  return { el, r, s, text };
+                })
+                .filter(({ el, r, s }) => visible(r) && !disabled(el, s));
+              let filtered;
+              if (kind === 'confirm') {
+                filtered = candidates.filter(({ r, s, text }) =>
+                  (text === '确认发布' || text === '确定' || text === '继续发布' || text === '发布') &&
+                  r.width >= 70 && r.height >= 30 &&
+                  (isRed(s.backgroundColor) || r.y > innerHeight * 0.35)
+                );
+              } else {
+                filtered = candidates.filter(({ r, s, text }) =>
+                  text === '发布' &&
+                  r.width >= 90 && r.width <= 260 &&
+                  r.height >= 34 && r.height <= 80 &&
+                  r.y > innerHeight * 0.62 &&
+                  isRed(s.backgroundColor)
+                );
+              }
+              filtered.sort((a, b) => (b.r.y - a.r.y) || (b.r.width * b.r.height - a.r.width * a.r.height));
+              const hit = filtered[0];
+              if (!hit) return null;
+              return { x: hit.r.x + hit.r.width / 2, y: hit.r.y + hit.r.height / 2, text: hit.text };
+            }""",
+            kind,
+        )
+        if not button_box:
+            return False
+        await page.mouse.click(button_box["x"], button_box["y"])
+        return True
+
+    clicked = await click_visible_button("publish")
+    if not clicked:
+        button_box = await page.evaluate(
         """() => {
           const inViewport = (r) => r.width > 0 && r.height > 0 && r.y >= 0 && r.y < innerHeight;
           const isRed = (color) => /rgb\\((25[0-5]|24\\d|23\\d),\\s*(0|[1-9]\\d),\\s*(3\\d|4\\d|5\\d|6\\d)\\)/.test(color);
@@ -201,14 +246,38 @@ async def _click_publish_button(page: Any) -> None:
           if (!hit) return null;
           return { x: hit.r.x + hit.r.width / 2, y: hit.r.y + hit.r.height / 2, text: hit.text };
         }"""
-    )
-    if button_box:
-        await page.mouse.click(button_box["x"], button_box["y"])
-    else:
-        # Fallback for the current creator layout: bottom action bar, red publish button.
-        viewport = page.viewport_size or {"width": 1700, "height": 840}
-        await page.mouse.click(viewport["width"] * 0.5, viewport["height"] - 44)
+        )
+        if button_box:
+            await page.mouse.click(button_box["x"], button_box["y"])
+        else:
+            # Fallback for the current creator layout: bottom action bar, red publish button.
+            viewport = page.viewport_size or {"width": 1700, "height": 840}
+            await page.mouse.click(viewport["width"] * 0.5, viewport["height"] - 44)
+    await page.wait_for_timeout(1500)
+    await click_visible_button("confirm")
     await page.wait_for_timeout(8000)
+
+
+async def _publish_button_still_visible(page: Any) -> bool:
+    return bool(
+        await page.evaluate(
+            """() => {
+              const isRed = (color) => /rgb\\((25[0-5]|24\\d|23\\d),\\s*(0|[1-9]\\d),\\s*(3\\d|4\\d|5\\d|6\\d)\\)/.test(color);
+              return [...document.querySelectorAll('button, [role=button], div, span')].some((el) => {
+                const r = el.getBoundingClientRect();
+                const s = getComputedStyle(el);
+                const text = (el.innerText || el.textContent || '').trim();
+                return text === '发布' &&
+                  r.width >= 90 && r.width <= 260 &&
+                  r.height >= 34 && r.height <= 80 &&
+                  r.y > innerHeight * 0.62 &&
+                  r.width > 0 && r.height > 0 &&
+                  s.pointerEvents !== 'none' &&
+                  isRed(s.backgroundColor);
+              });
+            }"""
+        )
+    )
 
 
 async def _xhs_publish_async(
@@ -238,6 +307,8 @@ async def _xhs_publish_async(
             await _click_publish_button(page)
             screenshot = screenshot_dir / "xhs_after_publish.png"
             await page.screenshot(path=str(screenshot), full_page=False)
+            if await _publish_button_still_visible(page):
+                raise RuntimeError(f"publish click did not complete; bottom publish button is still visible, screenshot={screenshot}")
             status = "published" if "published=true" in page.url else "submitted"
             message = "publish clicked"
         else:
