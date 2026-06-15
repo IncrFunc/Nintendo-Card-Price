@@ -178,6 +178,26 @@ async def _fill_title_and_body(page: Any, title: str, body: str) -> None:
     await page.wait_for_timeout(1200)
 
 
+async def _dispatch_xhs_publish_event(page: Any) -> bool:
+    return bool(
+        await page.evaluate(
+            """() => {
+              const buttons = [...document.querySelectorAll('xhs-publish-btn')];
+              const button = buttons.find((el) => {
+                const rect = el.getBoundingClientRect();
+                return el.getAttribute('is-publish') === 'true' &&
+                  el.getAttribute('submit-disabled') !== 'true' &&
+                  rect.width > 0 &&
+                  rect.height > 0;
+              });
+              if (!button) return false;
+              button.dispatchEvent(new CustomEvent('publish', { bubbles: true, composed: true }));
+              return true;
+            }"""
+        )
+    )
+
+
 async def _click_publish_button(page: Any) -> None:
     await page.evaluate(
         """() => {
@@ -187,6 +207,11 @@ async def _click_publish_button(page: Any) -> None:
         }"""
     )
     await page.wait_for_timeout(700)
+
+    if await _dispatch_xhs_publish_event(page):
+        await page.wait_for_timeout(3500)
+        if "published=true" in page.url:
+            return
 
     async def click_visible_button(kind: str) -> bool:
         clicked = await page.evaluate(
@@ -281,6 +306,15 @@ async def _publish_button_still_visible(page: Any) -> bool:
     return bool(
         await page.evaluate(
             """() => {
+              const xhsButton = [...document.querySelectorAll('xhs-publish-btn')].some((el) => {
+                const r = el.getBoundingClientRect();
+                return el.getAttribute('is-publish') === 'true' &&
+                  el.getAttribute('submit-disabled') !== 'true' &&
+                  r.width > 0 &&
+                  r.height > 0 &&
+                  r.y < innerHeight;
+              });
+              if (xhsButton) return true;
               return [...document.querySelectorAll('button, [role=button], div, span')].some((el) => {
                 const r = el.getBoundingClientRect();
                 const s = getComputedStyle(el);
