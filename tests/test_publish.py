@@ -1,7 +1,8 @@
 import json
 from pathlib import Path
 
-from nsg_price.publish import build_publish_pack, summarize_today_prices
+from nsg_price.publish import build_caption, build_publish_pack, summarize_today_prices
+from nsg_price.xiaohongshu import split_body_and_tags
 
 
 def test_summarize_today_prices_counts_statuses():
@@ -67,3 +68,20 @@ def test_build_publish_pack_uses_session_directory_and_caption(tmp_path, monkeyp
     assert "如有想要记录的卡带请评论哦！" in caption
     manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["session"] == "am"
+
+
+def test_caption_keeps_comment_prompt_before_tags():
+    summary = {
+        "game_count": 1,
+        "games_with_price": 1,
+        "ok_count": 1,
+        "unavailable_count": 0,
+        "missing_count": 0,
+    }
+    caption = build_caption("2026-06-16", summary, "pm")
+    body = "\n".join(caption.splitlines()[1:]).strip()
+    main_body, tags = split_body_and_tags(body)
+
+    assert "\u5982\u6709\u60f3\u8981\u8bb0\u5f55\u7684\u5361\u5e26\u8bf7\u8bc4\u8bba\u54e6\uff01" in main_body
+    assert caption.index("\u5982\u6709\u60f3\u8981\u8bb0\u5f55\u7684\u5361\u5e26\u8bf7\u8bc4\u8bba\u54e6\uff01") < caption.index("#")
+    assert all("\u8bc4\u8bba" not in tag for tag in tags)
