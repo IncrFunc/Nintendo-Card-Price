@@ -8,6 +8,7 @@ __pycache__/
 logs/
 *.pyc
 data/prices.json
+data/prices.db
 data/prices/
 data/prices.json.*.bak
 data/reports/

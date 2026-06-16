@@ -7,7 +7,7 @@ from typing import Any
 
 from .aggregation import build_session_average_series, date_key, record_session, session_label
 from .paths import report_dir
-from .storage import load_prices
+from .storage import configured_price_path, load_price_records
 from .utils import write_json
 
 try:
@@ -528,11 +528,16 @@ def generate_trend_png(records: list[dict[str, Any]], games: list[dict[str, Any]
 
 
 def generate_report(config: dict[str, Any], target_date: str | None = None, session: str | None = None) -> list[Path]:
-    storage = config["settings"]["storage"]
-    records = load_prices(storage["prices_json"])
     if target_date is None:
         target_date = datetime.now().date().isoformat()
     normalized_session = normalize_session(session)
+    games = [game for game in config.get("games", []) if game.get("enabled", True)]
+    records = load_price_records(
+        configured_price_path(config),
+        game_slugs=[str(game.get("slug") or "") for game in games],
+        date_from=trend_cutoff_date(target_date),
+        date_to=target_date,
+    )
     output_dir = report_dir(target_date, config)
     if normalized_session:
         output_dir = output_dir / normalized_session
@@ -540,7 +545,6 @@ def generate_report(config: dict[str, Any], target_date: str | None = None, sess
     trend_json = output_dir / "trend_series.json"
     write_json(today_json, build_today_price_table(config, records, target_date, normalized_session))
     write_json(trend_json, build_trend_series(config, records, target_date))
-    games = [game for game in config.get("games", []) if game.get("enabled", True)]
     today_chunks = [games[index : index + TODAY_TABLE_PAGE_SIZE] for index in range(0, len(games), TODAY_TABLE_PAGE_SIZE)] or [[]]
     outputs = [today_json, trend_json]
     for chunk_index, chunk in enumerate(today_chunks, start=1):

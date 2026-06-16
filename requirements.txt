@@ -1,5 +1,4 @@
 requests>=2.31.0
 python-dotenv>=1.0.1
-pytest>=8.0.0
 Pillow>=10.0.0
 playwright>=1.44.0

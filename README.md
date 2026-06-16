@@ -13,6 +13,13 @@ copy .env.example .env
 
 在 `.env` 里维护需要的商家 token。
 
+开发和测试环境额外安装：
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest
+```
+
 ## 一键日常运行
 
 启动自动采集、自动发布和网页管理 UI：
@@ -81,8 +88,9 @@ python main.py xhs-publish --session am --publish
 ## 数据目录
 
 ```text
-data/prices.json                  旧版原始采集记录（兼容读取）
-data/prices/YYYY-MM-DD.jsonl      新版按日期追加的原始采集记录
+data/prices.db                    当前 SQLite 原始采集记录数据库
+data/prices.json                  旧版原始采集记录（兼容迁移读取）
+data/prices/YYYY-MM-DD.jsonl      旧版按日期拆分记录（兼容迁移读取）
 data/reports/<date>/am|pm/         上午/下午报表图片
 data/publish/<date>/am|pm/         上午/下午发布清单和文案
 data/runtime/                      临时诊断输出
@@ -90,6 +98,8 @@ logs/automation.log                自动化运行日志
 ```
 
 `publish` 目录不再复制图片，只保存 `caption.txt` 和 `manifest.json`；图片源统一来自 `reports`，避免重复存储。
+
+新配置使用 `settings.storage.prices_path` 指向当前价格库；旧配置里的 `prices_json` 仍会被兼容读取并自动映射到同名 SQLite 数据库。
 
 ## 常用维护命令
 

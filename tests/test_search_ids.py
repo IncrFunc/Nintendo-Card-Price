@@ -56,6 +56,15 @@ def test_search_keywords_include_core_fragments_for_long_titles():
     assert "空前盛会" in mario_party
 
 
+def test_xenoblade1_keywords_include_common_merchant_aliases():
+    keywords = search_keywords_for_game({"slug": "xenoblade1", "name": "异度之刃1"})
+
+    assert "异度神剑" in keywords
+    assert "xenoblade" in keywords
+    assert "决定版" in keywords
+    assert "终极版" in keywords
+
+
 def test_build_and_apply_search_matches(monkeypatch):
     config = {
         "settings": {"request": {}},
@@ -90,6 +99,40 @@ def test_build_and_apply_search_matches(monkeypatch):
     assert config["games"][0]["merchant_ids"]["laolieren"]["game_id"] == "3174"
 
 
+def test_build_search_matches_can_override_search_keywords(monkeypatch):
+    config = {
+        "settings": {"request": {}},
+        "merchants": {"laolieren": {"name": "老猎人"}},
+        "games": [
+            {
+                "slug": "xenoblade1",
+                "name": "异度之刃1",
+                "platform": "Nintendo Switch",
+                "enabled": True,
+                "merchant_ids": {"laolieren": {"game_id": ""}},
+            }
+        ],
+    }
+    seen = []
+
+    def fake_search_all_merchants(keyword, **kwargs):
+        seen.append(keyword)
+        return {
+            "laolieren": {
+                "status": "ok",
+                "records": [{"name": "异度之刃 决定版 终极版", "item_id": "1267"}],
+            }
+        }
+
+    monkeypatch.setattr("nsg_price.search_ids.search_all_merchants", fake_search_all_merchants)
+
+    matches = build_search_matches(config, game_slug="xenoblade1", merchant="laolieren", search_keywords=["异度神剑"])
+
+    assert seen == [["异度神剑"]]
+    assert matches[0]["keyword"] == "异度神剑"
+    assert matches[0]["status"] == "matched"
+
+
 def test_unruled_game_requires_name_core_for_auto_match():
     game = {"slug": "pikimin-4", "name": "皮克敏4", "platform": "Nintendo Switch"}
     rows = [
@@ -106,3 +149,22 @@ def test_unruled_game_requires_name_core_for_auto_match():
     assert candidates[1]["rule_passed"] is True
     assert candidates[2]["matched_name"] == "NS2 密特罗德究极4 穿越未知"
     assert candidates[2]["rule_passed"] is False
+
+
+def test_xenoblade1_prefers_definitive_edition_over_numbered_sequels():
+    game = {"slug": "xenoblade1", "name": "异度之刃1", "platform": "Nintendo Switch"}
+    rows = [
+        {"game_name": "异度之刃2", "game_id": "1273"},
+        {"game_name": "异度之刃3", "game_id": "2370"},
+        {"game_name": "异度之刃 决定版 终极版", "game_id": "1267"},
+        {"game_name": "异度神剑：终极版", "game_id": "1664"},
+        {"game_name": "NS2 异度之刃X", "game_id": "3592"},
+    ]
+
+    candidates = candidates_for_game(game, "huoqiangshou", rows, top=5)
+
+    assert candidates[0]["game_id"] == "1267"
+    assert candidates[0]["rule_passed"] is True
+    assert candidates[1]["game_id"] == "1664"
+    assert candidates[1]["rule_passed"] is True
+    assert all(not item["rule_passed"] for item in candidates[2:])

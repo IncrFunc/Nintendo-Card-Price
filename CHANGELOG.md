@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.1 - 2026-06-16
+
+- Fixed daily automation so each due fetch/publish reloads the latest config, allowing games added in the UI to be collected without restarting.
+- Added SQLite database filtering helpers and clearer `prices_path` storage config support while keeping `prices_json` compatibility.
+- Ignored the live `data/prices.db` database and split test-only dependencies into `requirements-dev.txt`.
+- Moved the management UI HTML into a resource file and escaped dynamic chart/UI HTML output.
+- Added `mogushijian` to the `search-ids --merchant` CLI choices.
+
 ## 0.2.0 - 2026-06-15
 
 - Added morning/afternoon collection sessions (`am` and `pm`) so two daily runs produce separate reports and publish packs.

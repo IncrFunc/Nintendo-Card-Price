@@ -17,8 +17,8 @@ from nsg_price.doctor import build_doctor_report, format_doctor_report
 from nsg_price.paths import api_test_results_path, doctor_report_path, publish_root, runtime_root
 from nsg_price.publish import build_publish_pack
 from nsg_price.report import generate_report
-from nsg_price.search_ids import apply_search_matches, build_search_matches, write_search_match_outputs
-from nsg_price.storage import export_csv, migrate_legacy_prices_to_shards
+from nsg_price.search_ids import SEARCH_MERCHANTS, apply_search_matches, build_search_matches, write_search_match_outputs
+from nsg_price.storage import configured_price_path, export_csv, migrate_prices_to_database
 from nsg_price.utils import write_json
 from nsg_price.xiaohongshu import launch_edge_for_xhs, publish_to_xiaohongshu
 
@@ -55,7 +55,7 @@ def cmd_fetch(args: argparse.Namespace) -> None:
     ok, unavailable, ready, failed = summarize_records(records)
     print(f"fetch done: ok={ok}, unavailable={unavailable}, ready={ready}, failed/skipped={failed}, total={len(records)}")
     if args.csv:
-        output = export_csv(config["settings"]["storage"]["prices_json"], config["settings"]["storage"]["csv_dir"])
+        output = export_csv(configured_price_path(config), config["settings"]["storage"]["csv_dir"])
         print(f"csv exported: {output}")
     if args.report and not args.dry_run:
         print_report_outputs(generate_report(config))
@@ -127,14 +127,14 @@ def cmd_set_id(args: argparse.Namespace) -> None:
 
 def cmd_export_csv(args: argparse.Namespace) -> None:
     config = load_config(args.config)
-    output = export_csv(config["settings"]["storage"]["prices_json"], config["settings"]["storage"]["csv_dir"])
+    output = export_csv(configured_price_path(config), config["settings"]["storage"]["csv_dir"])
     print(f"csv exported: {output}")
 
 
 def cmd_migrate_prices(args: argparse.Namespace) -> None:
     config = load_config(args.config)
-    result = migrate_legacy_prices_to_shards(config["settings"]["storage"]["prices_json"], keep_backup=not args.no_backup)
-    print(f"prices migrated: records={result['migrated']}, shard_dir={result['shard_dir']}, backup={result['backup']}")
+    result = migrate_prices_to_database(configured_price_path(config), keep_backup=not args.no_backup)
+    print(f"prices migrated: records={result['migrated']}, database={result['database']}, backup={result['backup']}")
 
 
 def cmd_report(args: argparse.Namespace) -> None:
@@ -227,6 +227,7 @@ def cmd_auto(args: argparse.Namespace) -> None:
 
     run_daily_automation(
         config,
+        config_loader=lambda: load_config(args.config),
         fetch_times=args.fetch_time,
         publish_times=args.publish_time,
         port=args.port,
@@ -356,10 +357,10 @@ def build_parser() -> argparse.ArgumentParser:
     set_id_parser.add_argument("--uuid")
     set_id_parser.set_defaults(func=cmd_set_id)
 
-    export_parser = subparsers.add_parser("export-csv", help="export data/prices.json to CSV")
+    export_parser = subparsers.add_parser("export-csv", help="export price records to CSV")
     export_parser.set_defaults(func=cmd_export_csv)
 
-    migrate_prices = subparsers.add_parser("migrate-prices", help="migrate legacy prices.json into daily JSONL shards")
+    migrate_prices = subparsers.add_parser("migrate-prices", help="migrate legacy price files into SQLite database")
     migrate_prices.add_argument("--no-backup", action="store_true", help="do not keep a timestamped prices.json backup")
     migrate_prices.set_defaults(func=cmd_migrate_prices)
 
@@ -440,7 +441,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     search_ids = subparsers.add_parser("search-ids", help="search merchant APIs and match game ids directly")
     search_ids.add_argument("--game", help="game slug to search; defaults to all enabled games")
-    search_ids.add_argument("--merchant", choices=["laolieren", "huoqiangshou", "hailuo", "hangzhouxizi", "baibiandui"], help="merchant to search")
+    search_ids.add_argument("--merchant", choices=list(SEARCH_MERCHANTS), help="merchant to search")
     search_ids.add_argument("--output-dir", default=str(runtime_root()))
     search_ids.add_argument("--top", type=int, default=5)
     search_ids.add_argument("--page-size", type=int, default=10)

@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Switch Price Ops</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+  <header>
+    <div class="hero">
+      <div>
+        <h1>Switch Price Ops</h1>
+        <p>一个屏幕完成游戏队列、商家商品 ID、接口匹配和发布前配置维护。</p>
+      </div>
+      <div class="hero-actions">
+        <button id="reloadBtn" title="刷新">刷新数据</button>
+        <button id="newBtn" class="primary" title="新增游戏">新增游戏</button>
+      </div>
+    </div>
+    <div class="overview">
+      <div>
+        <div class="overview-title">
+          <span id="currentName" class="overview-name">请选择左侧游戏</span>
+          <span id="currentEnabled" class="pill soft">未选择</span>
+        </div>
+        <div id="currentMeta" class="overview-sub">选择游戏后显示平台、slug 和商家 ID 覆盖情况。</div>
+      </div>
+      <div class="stat-row">
+        <span id="summary" class="pill info"></span>
+        <span id="coverageSummary" class="pill soft"></span>
+        <span id="matchSummary" class="pill soft"></span>
+      </div>
+    </div>
+  </header>
+  <main>
+    <aside>
+      <div class="sidebar-top">
+        <div class="panel">
+          <div class="panel-title">游戏队列</div>
+          <div class="panel-note">按名称、slug 或平台过滤。优先处理 ID 缺失、待复核和准备发布的项目。</div>
+          <div class="toolbar" style="margin:12px 0 0">
+            <input id="filter" placeholder="搜索游戏 / slug / 平台">
+          </div>
+        </div>
+        <details class="panel merchant-switch-panel">
+          <summary>
+          <div class="panel-title">回收商总开关</div>
+          <div class="panel-note">接口异常时先在这里关闭对应回收商，采集和自动匹配会立刻跳过。</div>
+          </summary>
+          <div class="merchant-switch-body">
+            <span id="merchantStatus" class="status soft">等待操作</span>
+            <div id="merchantSettings" class="merchant-grid compact-merchants"></div>
+          </div>
+        </details>
+      </div>
+      <div id="games" class="games"></div>
+    </aside>
+    <section>
+      <div class="editor-shell">
+        <div class="editor-columns">
+          <div class="editor-main">
+            <div class="panel basic-panel">
+              <div class="panel-header">
+                <div>
+                  <h2 class="panel-title">游戏信息</h2>
+                  <div class="panel-note">只保留当前游戏的必要识别信息，给匹配结果让出空间。</div>
+                </div>
+                <span id="formStatus" class="status soft">等待编辑</span>
+              </div>
+              <div class="grid">
+                <label>名称
+                  <input id="name">
+                </label>
+                <label>平台
+                  <select id="platform">
+                    <option>Nintendo Switch</option>
+                    <option>Nintendo Switch 2</option>
+                  </select>
+                </label>
+                <label>唯一标识
+                  <input id="slug">
+                </label>
+                <label>状态
+                  <select id="enabled">
+                    <option value="true">启用</option>
+                    <option value="false">停用</option>
+                  </select>
+                </label>
+              </div>
+              <div class="toolbar" style="margin-top:12px;margin-bottom:0">
+                <button id="saveBtn" class="primary">保存当前游戏</button>
+                <button id="deleteBtn" class="danger">删除当前游戏</button>
+              </div>
+            </div>
+
+            <div class="panel ids-panel">
+              <div class="panel-header">
+                <div>
+                  <h2 class="panel-title">商家商品 ID</h2>
+                  <div class="panel-note">每个回收商一张卡片。缺失 ID 的项目会在采集时跳过。</div>
+                </div>
+              </div>
+              <div id="merchants" class="merchant-grid"></div>
+            </div>
+          </div>
+
+          <div class="editor-side">
+            <div class="panel search-panel">
+              <div class="panel-header">
+                <div>
+                  <h2 class="panel-title">采集匹配</h2>
+                  <div class="panel-note">搜索候选并写入当前游戏，不需要离开当前工作台。</div>
+                </div>
+                <span id="searchStatus" class="status soft">还没有执行匹配</span>
+              </div>
+              <div class="grid single">
+                <label>搜索关键词
+                  <input id="searchKeyword">
+                </label>
+              </div>
+              <div class="toolbar" style="margin-top:12px;margin-bottom:0">
+                <button id="searchBtn" class="primary">自动匹配当前游戏</button>
+                <button id="applySearchBtn">一键写入高置信候选</button>
+              </div>
+            </div>
+
+            <div class="panel match-panel">
+              <div class="panel-header">
+                <div>
+                  <h2 class="panel-title">匹配结果</h2>
+                  <div class="panel-note">候选、置信度和写入动作固定在这里，适合逐项复核。</div>
+                </div>
+              </div>
+              <div class="match-scroll">
+                <table class="compact-table">
+                  <thead>
+                    <tr>
+                      <th>商家</th>
+                      <th class="text-center">状态</th>
+                      <th>动作</th>
+                      <th>候选结果</th>
+                      <th class="text-right">商品 ID</th>
+                      <th class="text-right">置信度</th>
+                    </tr>
+                  </thead>
+                  <tbody id="matches"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <script src="/assets/app.js"></script>
+</body>
+</html>

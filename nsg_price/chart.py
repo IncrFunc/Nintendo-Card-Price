@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
+import html as html_lib
 from pathlib import Path
 from statistics import mean
 from typing import Any
 
 from .aggregation import build_daily_average_series
-from .storage import load_prices
+from .storage import configured_price_path, load_price_records
 
 
 def build_daily_series(records: list[dict[str, Any]], game_slug: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -20,12 +21,13 @@ def build_daily_series(records: list[dict[str, Any]], game_slug: str) -> tuple[l
 
 def generate_chart(config: dict[str, Any], game_slug: str) -> Path:
     storage = config["settings"]["storage"]
-    records = load_prices(storage["prices_json"])
+    records = load_price_records(configured_price_path(config), game_slug=game_slug, status="ok")
     daily, filtered = build_daily_series(records, game_slug)
     if not daily:
         raise ValueError(f"No successful price data found for game: {game_slug}")
 
     game_name = next((r.get("game_name") for r in filtered if r.get("game_name")), game_slug)
+    escaped_game_name = html_lib.escape(str(game_name))
     values = [item["avg_price"] for item in daily]
     current = values[-1]
     high = max(values)
@@ -42,7 +44,7 @@ def generate_chart(config: dict[str, Any], game_slug: str) -> Path:
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{game_name} 回收价走势</title>
+  <title>{escaped_game_name} 回收价走势</title>
   <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
   <style>
     body {{
@@ -149,8 +151,8 @@ def generate_chart(config: dict[str, Any], game_slug: str) -> Path:
   <main class="page">
     <section class="top">
       <div>
-        <h1>{game_name} 回收价走势</h1>
-        <p class="sub">每天每个回收商取最新回收价，再计算当日商家均价。数据源：data/prices.json + data/prices/*.jsonl</p>
+        <h1>{escaped_game_name} 回收价走势</h1>
+        <p class="sub">每天每个回收商取最新回收价，再计算当日商家均价。数据源：data/prices.db</p>
       </div>
       <div class="current">
         <span>当天最新平均价</span>
@@ -168,7 +170,7 @@ def generate_chart(config: dict[str, Any], game_slug: str) -> Path:
       <table>
         <thead><tr><th>回收商</th><th>回收价</th><th>采集时间</th></tr></thead>
         <tbody>
-          {''.join(f"<tr><td>{item['merchant']}</td><td>¥{float(item['price']):.2f}</td><td>{item['fetched_at']}</td></tr>" for item in latest_details)}
+          {''.join(f"<tr><td>{html_lib.escape(str(item['merchant']))}</td><td>¥{float(item['price']):.2f}</td><td>{html_lib.escape(str(item['fetched_at']))}</td></tr>" for item in latest_details)}
         </tbody>
       </table>
     </section>

@@ -139,3 +139,41 @@ def test_chart_generates_html(tmp_path):
     )
     assert output.exists()
     assert "塞尔达传说 王国之泪 回收价走势" in output.read_text(encoding="utf-8")
+
+
+def test_chart_escapes_html_from_price_records(tmp_path):
+    prices_path = tmp_path / "prices.json"
+    chart_dir = tmp_path / "charts"
+    prices_path.write_text(
+        json.dumps(
+            [
+                {
+                    "merchant": "bad<script>",
+                    "merchant_name": "bad<script>",
+                    "game_slug": "html-game",
+                    "game_name": "Name <script>",
+                    "recycle_price": 210,
+                    "status": "ok",
+                    "fetched_at": "2026-06-01T09:30:00+08:00",
+                }
+            ],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    output = generate_chart(
+        {
+            "settings": {
+                "storage": {
+                    "prices_json": str(prices_path),
+                    "chart_dir": str(chart_dir),
+                }
+            }
+        },
+        "html-game",
+    )
+    html = output.read_text(encoding="utf-8")
+
+    assert "Name &lt;script&gt; 回收价走势" in html
+    assert "bad&lt;script&gt;" in html

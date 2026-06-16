@@ -13,7 +13,7 @@ import urllib3
 from .config import enabled_games
 from .constants import DEFAULT_XIZI_UUID
 from .parsers import PARSERS
-from .storage import append_prices
+from .storage import append_prices, configured_price_path
 from .aggregation import session_for_time
 from .utils import compact_json, render_template
 
@@ -241,5 +241,5 @@ def collect(config: dict[str, Any], game_slug: str | None = None, dry_run: bool 
                 )
 
     if not dry_run:
-        append_prices(config["settings"]["storage"]["prices_json"], persistable_records(records))
+        append_prices(configured_price_path(config), persistable_records(records))
     return records

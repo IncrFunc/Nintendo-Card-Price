@@ -17,6 +17,7 @@
       "save_raw_response": false
     },
     "storage": {
+      "prices_path": "data/prices.db",
       "prices_json": "data/prices.json",
       "csv_dir": "data/exports",
       "chart_dir": "data/charts",

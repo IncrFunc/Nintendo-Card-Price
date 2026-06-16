@@ -59,6 +59,7 @@ MATCH_RULES: dict[str, list[list[str]]] = {
     "pokemon-pokopia": [["pokopia"]],
     "hyrule-warriors-age-of-imprisonment": [["封印战记"], ["塞尔达无双"]],
     "kirby-air-riders": [["驭天飞行", "御天飞行"]],
+    "xenoblade1": [["异度之刃", "异度神剑", "xenoblade"], ["决定版", "终极版", "definitive"]],
 }
 REJECT_RULES: dict[str, list[str]] = {
     "zelda-breath-of-the-wild": ["扩充", "dlc", "同捆"],
@@ -67,6 +68,7 @@ REJECT_RULES: dict[str, list[str]] = {
     "pokemon-legends-z-a": ["朱紫", "扩充票"],
     "splatoon-3": ["扩充票", "dlc"],
     "mario-kart-8-deluxe": ["扩充版", "dlc"],
+    "xenoblade1": ["异度之刃2", "异度神剑 2", "异度神剑2", "异度之刃3", "异度神剑 3", "异度神剑3", "异度之刃x", "异度神剑x", "黄金", "伊拉", "ns2", "订购"],
 }
 SYNONYMS = {
     "马力欧": "马里奥",
@@ -585,6 +587,7 @@ def build_search_matches(
     *,
     game_slug: str | None = None,
     merchant: str | None = None,
+    search_keywords: list[str] | None = None,
     top: int = 5,
     page_size: int = 10,
     timeout: int | None = None,
@@ -594,7 +597,7 @@ def build_search_matches(
     merchants = [merchant] if merchant else [key for key in SEARCH_MERCHANTS if key in config.get("merchants", {})]
     matches: list[dict[str, Any]] = []
     for game in enabled_games(config, game_slug):
-        keywords = search_keywords_for_game(game)
+        keywords = [keyword.strip() for keyword in search_keywords or [] if keyword.strip()] or search_keywords_for_game(game)
         xizi_uuid = (
             config.get("settings", {}).get("default_xizi_uuid")
             or game.get("merchant_ids", {}).get("hangzhouxizi", {}).get("uuid")

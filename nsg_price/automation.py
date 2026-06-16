@@ -118,6 +118,7 @@ def run_xhs_publish(
 def run_daily_automation(
     config: dict,
     *,
+    config_loader: Callable[[], dict] | None = None,
     fetch_times: list[str] | None = None,
     publish_times: list[str] | None = None,
     port: int = 9223,
@@ -141,6 +142,10 @@ def run_daily_automation(
         f"xhs publish windows {', '.join(normalized_publish_windows)}"
     )
     ran: set[tuple[str, str, str]] = set()
+
+    def current_config() -> dict:
+        return config_loader() if config_loader else config
+
     while True:
         now = datetime.now()
         date = now.date().isoformat()
@@ -155,7 +160,7 @@ def run_daily_automation(
         if current_time in normalized_fetch_times and ("fetch", date, current_time) not in ran:
             session = session_for_schedule_time(current_time)
             try:
-                run_fetch_and_pack(config, target_date=date, session=session, log=log)
+                run_fetch_and_pack(current_config(), target_date=date, session=session, log=log)
             except Exception as exc:
                 log(f"[{datetime.now().isoformat(timespec='seconds')}] fetch failed: {exc!r}")
             ran.add(("fetch", date, current_time))
@@ -170,7 +175,7 @@ def run_daily_automation(
             session = session_for_schedule_time(current_time)
             try:
                 run_xhs_publish(
-                    config,
+                    current_config(),
                     target_date=date,
                     session=session,
                     port=port,
