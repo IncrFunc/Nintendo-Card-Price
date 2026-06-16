@@ -16,6 +16,23 @@ def test_windows_task_scripts_define_expected_schedule():
     assert "--no-report" in run_script
 
 
+def test_linux_scripts_and_systemd_example_are_available():
+    run_fetch = Path("scripts/run_fetch.sh").read_text(encoding="utf-8")
+    run_auto = Path("scripts/run_auto_linux.sh").read_text(encoding="utf-8")
+    service = Path("scripts/systemd/nintendo-game-price.service.example").read_text(encoding="utf-8")
+    docs = Path("docs/linux.md").read_text(encoding="utf-8")
+
+    assert "python3" in run_fetch
+    assert "DRY_RUN" in run_fetch
+    assert "main.py --config" in run_fetch
+    assert "auto --ui" in run_auto
+    assert "UI_HOST" in run_auto
+    assert "Nintendo Game Price daily automation" in service
+    assert "Restart=always" in service
+    assert "python main.py xhs-edge" in docs
+    assert "systemd" in docs
+
+
 def test_xhs_today_script_wraps_publish_flow():
     script = Path("scripts/publish_xhs_today.py").read_text(encoding="utf-8")
 

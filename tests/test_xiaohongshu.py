@@ -17,3 +17,13 @@ def test_xhs_publish_click_verifies_completion():
     assert "new CustomEvent('publish'" in source
     assert "xhs-publish-btn" in source
     assert "dispatchEvent(new MouseEvent" in source
+
+
+def test_xhs_browser_launcher_supports_linux_candidates():
+    source = Path("nsg_price/xiaohongshu.py").read_text(encoding="utf-8")
+
+    assert "LINUX_BROWSER_CANDIDATES" in source
+    assert "google-chrome" in source
+    assert "chromium-browser" in source
+    assert "default_xhs_profile_dir" in source
+    assert "find_xhs_browser_executable" in source

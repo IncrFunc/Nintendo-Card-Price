@@ -28,6 +28,8 @@ python -m pytest
 python main.py auto --ui --launch-edge
 ```
 
+Linux 部署见 `docs/linux.md`；Windows 任务计划脚本仍保留在 `scripts/*.ps1`。
+
 默认时间：
 
 ```text

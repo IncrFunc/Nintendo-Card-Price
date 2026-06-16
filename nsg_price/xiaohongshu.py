@@ -3,7 +3,9 @@ from __future__ import annotations
 import asyncio
 import random
 import re
+import shutil
 import subprocess
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -21,6 +23,14 @@ TAG_TYPE_DELAY_RANGE = (55, 95)
 OPEN_BEFORE_UPLOAD_MS = 5000
 AFTER_UPLOAD_BEFORE_COPY_MS = 10000
 TAG_INTERVAL_MS = 1000
+LINUX_BROWSER_CANDIDATES = (
+    "microsoft-edge",
+    "microsoft-edge-stable",
+    "google-chrome",
+    "google-chrome-stable",
+    "chromium",
+    "chromium-browser",
+)
 
 
 @dataclass(frozen=True)
@@ -89,17 +99,44 @@ def wait_for_debug_port(port: int, timeout: float = 20.0) -> None:
     raise TimeoutError(f"Edge remote debugging port is not ready: {url}")
 
 
+def default_xhs_profile_dir() -> Path:
+    if sys.platform.startswith("win"):
+        return Path.home() / "AppData/Local/Temp/xhs-edge-codex-profile"
+    return Path.home() / ".cache/nintendo-game-price/xhs-browser-profile"
+
+
+def find_xhs_browser_executable(edge_path: str | Path | None = None) -> Path:
+    if edge_path:
+        executable = Path(edge_path)
+        if executable.exists():
+            return executable
+        raise FileNotFoundError(f"browser executable not found: {executable}")
+
+    windows_edge = Path("C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe")
+    if sys.platform.startswith("win"):
+        if windows_edge.exists():
+            return windows_edge
+        resolved = shutil.which("msedge") or shutil.which("microsoft-edge")
+        if resolved:
+            return Path(resolved)
+        raise FileNotFoundError(f"Edge executable not found: {windows_edge}")
+
+    for name in LINUX_BROWSER_CANDIDATES:
+        resolved = shutil.which(name)
+        if resolved:
+            return Path(resolved)
+    raise FileNotFoundError("Linux browser executable not found: install Microsoft Edge, Google Chrome, or Chromium, or pass --edge-path")
+
+
 def launch_edge_for_xhs(
     *,
     port: int = 9223,
     profile_dir: str | Path | None = None,
     edge_path: str | Path | None = None,
 ) -> None:
-    profile = Path(profile_dir) if profile_dir else Path.home() / "AppData/Local/Temp/xhs-edge-codex-profile"
+    profile = Path(profile_dir) if profile_dir else default_xhs_profile_dir()
     profile.mkdir(parents=True, exist_ok=True)
-    executable = Path(edge_path) if edge_path else Path("C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe")
-    if not executable.exists():
-        raise FileNotFoundError(f"Edge executable not found: {executable}")
+    executable = find_xhs_browser_executable(edge_path)
     args = [
         str(executable),
         f"--remote-debugging-port={port}",

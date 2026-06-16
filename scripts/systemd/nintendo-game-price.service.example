@@ -1,0 +1,19 @@
+[Unit]
+Description=Nintendo Game Price daily automation
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/Nintendo_Game_Price
+Environment=PYTHONUNBUFFERED=1
+Environment=CONFIG=config.json
+Environment=UI_HOST=127.0.0.1
+Environment=UI_PORT=8765
+Environment=XHS_PORT=9223
+ExecStart=/opt/Nintendo_Game_Price/scripts/run_auto_linux.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
