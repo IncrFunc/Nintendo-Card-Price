@@ -85,3 +85,27 @@ def test_caption_keeps_comment_prompt_before_tags():
     assert "\u5982\u6709\u60f3\u8981\u8bb0\u5f55\u7684\u5361\u5e26\u8bf7\u8bc4\u8bba\u54e6\uff01" in main_body
     assert caption.index("\u5982\u6709\u60f3\u8981\u8bb0\u5f55\u7684\u5361\u5e26\u8bf7\u8bc4\u8bba\u54e6\uff01") < caption.index("#")
     assert all("\u8bc4\u8bba" not in tag for tag in tags)
+
+
+def test_caption_uses_fixed_requested_template():
+    summary = {
+        "game_count": 3,
+        "games_with_price": 2,
+        "ok_count": 5,
+        "unavailable_count": 1,
+        "missing_count": 0,
+    }
+
+    caption = build_caption("2026-06-16", summary)
+
+    assert caption == "\n".join(
+        [
+            "Switch 卡带回收价记录｜2026-06-16",
+            "",
+            "前面为本次各回收商价格总表，后续页面展示回收价走势。",
+            "价格仅作记录参考，实际回收价以各平台当时页面为准。",
+            "如有想要记录的卡带请评论哦！",
+            "",
+            "#任天堂Switch #Switch卡带 #游戏回收 #二手游戏 #价格记录",
+        ]
+    )

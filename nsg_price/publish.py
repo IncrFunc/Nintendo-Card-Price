@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -54,20 +53,22 @@ def summarize_today_prices(today_prices: list[dict[str, Any]]) -> dict[str, int]
     }
 
 
+COMMENT_PROMPT = "如有想要记录的卡带请评论哦！"
+CAPTION_TAGS = "#任天堂Switch #Switch卡带 #游戏回收 #二手游戏 #价格记录"
+
+
 def build_caption(target_date: str, summary: dict[str, int], session: str | None = None) -> str:
-    title_date = target_date if session is None else f"{target_date} {session_label(session)}"
+    normalized_session = normalize_session(session)
+    title_date = target_date if normalized_session is None else f"{target_date} {session_label(normalized_session)}"
     return "\n".join(
         [
             f"Switch 卡带回收价记录｜{title_date}",
             "",
-            f"本次记录 {summary['game_count']} 款卡带，{summary['games_with_price']} 款已有回收价。",
-            f"本次采到 {summary['ok_count']} 条有效报价，{summary['unavailable_count']} 条标记为不收别家。",
-            "",
-            "图1是本次各回收商价格总表，后续页面展示回收价走势。",
+            "前面为本次各回收商价格总表，后续页面展示回收价走势。",
             "价格仅作记录参考，实际回收价以各平台当时页面为准。",
-            "如有想要记录的卡带请评论哦！",
+            COMMENT_PROMPT,
             "",
-            "#任天堂Switch #Switch卡带 #游戏回收 #二手游戏 #价格记录",
+            CAPTION_TAGS,
         ]
     )
 

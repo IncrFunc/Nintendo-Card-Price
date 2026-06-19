@@ -173,6 +173,8 @@ def cmd_xhs_publish(args: argparse.Namespace) -> None:
     print(f"title: {result.title}")
     print(f"images: {result.image_count}")
     print(f"url: {result.url}")
+    if result.before_publish_screenshot:
+        print(f"before publish screenshot: {result.before_publish_screenshot}")
     print(f"screenshot: {result.screenshot}")
     print(result.message)
 

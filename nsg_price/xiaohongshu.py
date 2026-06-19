@@ -18,11 +18,18 @@ from .publish import normalize_session
 from .utils import load_json
 
 PUBLISH_URL = "https://creator.xiaohongshu.com/publish/publish?source=official"
-BODY_TYPE_DELAY_RANGE = (28, 58)
-TAG_TYPE_DELAY_RANGE = (55, 95)
-OPEN_BEFORE_UPLOAD_MS = 5000
+TITLE_TYPE_DELAY_RANGE = (1500, 2500)
+BODY_PASTE_DELAY_RANGE = (900, 1800)
+TAG_TYPE_DELAY_RANGE = (1500, 2500)
+PUNCTUATION_PAUSE_RANGE = (180, 420)
+LINE_BREAK_DELAY_RANGE = (220, 520)
+CLICK_DELAY_RANGE = (350, 1200)
+UPLOAD_PICKER_DELAY_RANGE = (1500, 3200)
+UPLOAD_SETTLE_PER_IMAGE_DELAY_RANGE = (900, 1800)
+OPEN_BEFORE_UPLOAD_MS = 20000
 AFTER_UPLOAD_BEFORE_COPY_MS = 10000
 TAG_INTERVAL_MS = 1000
+EDIT_MINIMUM_DURATION_MS = 180000
 LINUX_BROWSER_CANDIDATES = (
     "microsoft-edge",
     "microsoft-edge-stable",
@@ -41,6 +48,7 @@ class XiaohongshuPublishResult:
     image_count: int
     screenshot: Path
     message: str
+    before_publish_screenshot: Path | None = None
 
 
 def caption_parts(caption_path: Path) -> tuple[str, str]:
@@ -72,6 +80,16 @@ def publish_pack_files(pack_dir: Path) -> tuple[list[Path], Path]:
     if not caption_path.exists():
         raise FileNotFoundError(f"missing caption: {caption_path}")
     return images, caption_path
+
+
+def publish_screenshot_dir(pack_dir: Path, fallback_dir: Path) -> Path:
+    manifest_path = pack_dir / "manifest.json"
+    if manifest_path.exists():
+        manifest = load_json(manifest_path)
+        report_path = manifest.get("report_dir")
+        if report_path:
+            return Path(report_path)
+    return fallback_dir
 
 
 def split_body_and_tags(body: str) -> tuple[str, list[str]]:
@@ -171,26 +189,117 @@ async def _activate_image_tab(page: Any) -> None:
         tab = tabs.nth(index)
         text = (await tab.inner_text()).strip()
         if "上传图文" in text:
-            await tab.evaluate("(element) => element.click()")
+            box = await tab.bounding_box()
+            if not box or box["x"] < 0 or box["y"] < 0:
+                continue
+            await _human_click_locator(page, tab)
             await page.wait_for_timeout(1000)
             return
     link = page.get_by_text("上传图文", exact=True)
-    if await link.count():
-        await link.first.evaluate("(element) => element.click()")
+    count = await link.count()
+    for index in range(count):
+        candidate = link.nth(index)
+        box = await candidate.bounding_box()
+        if not box or box["x"] < 0 or box["y"] < 0:
+            continue
+        await _human_click_locator(page, candidate)
         await page.wait_for_timeout(1000)
         return
     raise RuntimeError("could not find Xiaohongshu image publish tab")
 
 
+async def _human_click_locator(page: Any, locator: Any, *, timeout: int = 10000) -> None:
+    await locator.wait_for(state="visible", timeout=timeout)
+    await locator.scroll_into_view_if_needed(timeout=timeout)
+    box = await locator.bounding_box(timeout=timeout)
+    if not box:
+        await locator.click(timeout=timeout)
+        return
+    padding_x = min(10, max(box["width"] / 4, 0))
+    padding_y = min(10, max(box["height"] / 4, 0))
+    min_x = box["x"] + padding_x
+    max_x = box["x"] + max(box["width"] - padding_x, padding_x)
+    min_y = box["y"] + padding_y
+    max_y = box["y"] + max(box["height"] - padding_y, padding_y)
+    x = random.uniform(min_x, max_x)
+    y = random.uniform(min_y, max_y)
+    await page.mouse.move(x + random.uniform(-2, 2), y + random.uniform(-2, 2), steps=random.randint(4, 9))
+    await _human_wait(page, CLICK_DELAY_RANGE)
+    await page.mouse.click(x, y, delay=random.randint(40, 160))
+
+
+async def _random_mouse_click(page: Any, x: float, y: float, *, radius: float = 8) -> None:
+    target_x = x + random.uniform(-radius, radius)
+    target_y = y + random.uniform(-radius, radius)
+    await page.mouse.move(target_x + random.uniform(-2, 2), target_y + random.uniform(-2, 2), steps=random.randint(4, 9))
+    await _human_wait(page, CLICK_DELAY_RANGE)
+    await page.mouse.click(target_x, target_y, delay=random.randint(40, 160))
+
+
+async def _click_upload_entry(page: Any) -> None:
+    selectors = [
+        "text=上传图片",
+        "text=上传图文",
+        "text=选择图片",
+        ".upload-wrapper",
+        ".upload-box",
+        ".upload-container",
+        ".image-upload",
+        ".upload",
+        "input[type=file]",
+    ]
+    for selector in selectors:
+        locator = page.locator(selector).first
+        if await locator.count():
+            try:
+                await _human_click_locator(page, locator, timeout=3000)
+                return
+            except Exception:
+                continue
+    raise RuntimeError("could not find Xiaohongshu image upload entry")
+
+
 async def _upload_images(page: Any, images: list[Path]) -> None:
-    file_input = page.locator("input[type=file]").first
-    await file_input.set_input_files([str(path.resolve()) for path in images])
+    await _human_wait(page, UPLOAD_PICKER_DELAY_RANGE)
+    async with page.expect_file_chooser(timeout=15000) as chooser_info:
+        await _click_upload_entry(page)
+    file_chooser = await chooser_info.value
+    await file_chooser.set_files([str(path.resolve()) for path in images])
     await page.wait_for_timeout(AFTER_UPLOAD_BEFORE_COPY_MS)
+    for _ in images:
+        await _human_wait(page, UPLOAD_SETTLE_PER_IMAGE_DELAY_RANGE)
+
+
+async def _human_wait(page: Any, delay_range: tuple[int, int]) -> None:
+    await page.wait_for_timeout(random.randint(*delay_range))
 
 
 async def _human_type(page: Any, text: str, delay_range: tuple[int, int]) -> None:
     for char in text:
-        await page.keyboard.type(char, delay=random.randint(*delay_range))
+        if char == "\n":
+            await page.keyboard.press("Enter")
+            await _human_wait(page, LINE_BREAK_DELAY_RANGE)
+            continue
+        await page.keyboard.insert_text(char)
+        await _human_wait(page, delay_range)
+        if char in "。！？!?；;":
+            await _human_wait(page, PUNCTUATION_PAUSE_RANGE)
+
+
+async def _paste_text(page: Any, text: str) -> None:
+    await _human_wait(page, BODY_PASTE_DELAY_RANGE)
+    try:
+        await page.evaluate("async (value) => navigator.clipboard.writeText(value)", text)
+        await page.keyboard.press("Control+V")
+    except Exception:
+        await page.keyboard.insert_text(text)
+
+
+async def _wait_for_minimum_edit_duration(page: Any, started_at: float) -> None:
+    elapsed_ms = int((time.monotonic() - started_at) * 1000)
+    remaining_ms = EDIT_MINIMUM_DURATION_MS - elapsed_ms
+    if remaining_ms > 0:
+        await page.wait_for_timeout(remaining_ms)
 
 
 async def _insert_text(page: Any, text: str) -> None:
@@ -198,27 +307,29 @@ async def _insert_text(page: Any, text: str) -> None:
 
 
 async def _fill_title_and_body(page: Any, title: str, body: str) -> None:
+    edit_started_at = time.monotonic()
     main_body, tags = split_body_and_tags(body)
     visible_inputs = page.locator('input[type="text"]:visible')
     if await visible_inputs.count() < 1:
         raise RuntimeError("could not find visible title input")
     title_input = visible_inputs.nth(0)
-    await title_input.click(timeout=10000)
+    await _human_click_locator(page, title_input)
     await title_input.fill("", timeout=10000)
-    await title_input.fill(title, timeout=10000)
+    await _human_type(page, title, TITLE_TYPE_DELAY_RANGE)
 
     editor = page.locator(".tiptap.ProseMirror").first
-    await editor.click(timeout=10000)
+    await _human_click_locator(page, editor)
     await page.keyboard.press("Control+A")
-    await _insert_text(page, main_body)
+    await _paste_text(page, main_body)
     if tags:
         await page.keyboard.press("Enter")
         await page.keyboard.press("Enter")
     for tag in tags:
-        await _insert_text(page, f"#{tag}")
+        await _human_type(page, f"#{tag}", TAG_TYPE_DELAY_RANGE)
         await page.wait_for_timeout(TAG_INTERVAL_MS)
         await page.keyboard.press("Enter")
         await page.wait_for_timeout(TAG_INTERVAL_MS)
+    await _wait_for_minimum_edit_duration(page, edit_started_at)
     await page.wait_for_timeout(1200)
 
 
@@ -333,11 +444,11 @@ async def _click_publish_button(page: Any) -> None:
         }"""
         )
         if button_box:
-            await page.mouse.click(button_box["x"], button_box["y"])
+            await _random_mouse_click(page, button_box["x"], button_box["y"])
         else:
             # Fallback for the current creator layout: bottom action bar, red publish button.
             viewport = page.viewport_size or {"width": 1700, "height": 840}
-            await page.mouse.click(viewport["width"] * 0.5, viewport["height"] - 44)
+            await _random_mouse_click(page, viewport["width"] * 0.5, viewport["height"] - 44, radius=12)
     await page.wait_for_timeout(2200)
     for _ in range(3):
         if not await click_visible_button("confirm"):
@@ -399,6 +510,8 @@ async def _xhs_publish_async(
         await page.wait_for_timeout(OPEN_BEFORE_UPLOAD_MS)
         await _upload_images(page, images)
         await _fill_title_and_body(page, title, body)
+        before_publish_screenshot = screenshot_dir / "xhs_before_publish.png"
+        await page.screenshot(path=str(before_publish_screenshot), full_page=False)
 
         if publish:
             await _click_publish_button(page)
@@ -409,8 +522,7 @@ async def _xhs_publish_async(
             status = "published" if "published=true" in page.url else "submitted"
             message = "publish clicked"
         else:
-            screenshot = screenshot_dir / "xhs_ready_to_publish.png"
-            await page.screenshot(path=str(screenshot), full_page=False)
+            screenshot = before_publish_screenshot
             status = "ready"
             message = "filled and waiting for manual review"
 
@@ -421,6 +533,7 @@ async def _xhs_publish_async(
             image_count=len(images),
             screenshot=screenshot,
             message=message,
+            before_publish_screenshot=before_publish_screenshot,
         )
         await browser.close()
         return result
@@ -452,6 +565,6 @@ def publish_to_xiaohongshu(
             pack_dir=resolved_pack_dir,
             port=port,
             publish=publish,
-            screenshot_dir=runtime_root(config),
+            screenshot_dir=publish_screenshot_dir(resolved_pack_dir, runtime_root(config)),
         )
     )

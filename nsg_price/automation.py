@@ -110,7 +110,10 @@ def run_xhs_publish(
         profile_dir=profile_dir,
         edge_path=edge_path,
     )
-    message = f"xhs status={result.status}, images={result.image_count}, url={result.url}, screenshot={result.screenshot}"
+    message = (
+        f"xhs status={result.status}, images={result.image_count}, url={result.url}, "
+        f"before_publish_screenshot={result.before_publish_screenshot}, screenshot={result.screenshot}"
+    )
     log(f"[{datetime.now().isoformat(timespec='seconds')}] {message}")
     return AutomationEvent(kind="xhs-publish", date=date, message=message)
 

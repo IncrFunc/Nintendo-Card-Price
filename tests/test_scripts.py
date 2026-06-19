@@ -38,6 +38,7 @@ def test_xhs_today_script_wraps_publish_flow():
 
     assert "build_publish_pack" in script
     assert "publish_to_xiaohongshu" in script
+    assert "before publish screenshot" in script
     assert "--publish" in script
     assert "--no-launch-edge" in script
     assert "latest_existing_session" in script
