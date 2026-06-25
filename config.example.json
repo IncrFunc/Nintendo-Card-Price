@@ -122,54 +122,47 @@
       }
     },
     "hangzhouxizi": {
-      "name": "西子电玩",
+      "name": "杭州西子",
       "enabled": true,
       "parser": "hangzhouxizi",
-      "requires_env": [
-        "XIZI_RECYCLEXCX"
-      ],
       "endpoint": {
         "method": "POST",
-        "url": "https://api.recycle.steamlease.cn/commodity/getCommodity",
+        "url": "https://xcx.hzxzdwsc.com/api/index/detail",
         "headers": {
-          "recyclexcx": "${XIZI_RECYCLEXCX}",
-          "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 MicroMessenger/7.0.20.1781(0x6700143B) NetType/WIFI MiniProgramEnv/Windows WindowsWechat/WMPF WindowsWechat(0x63090a13) UnifiedPCWindowsWechat(0xf2541939) XWEB/19841",
-          "xweb_xhr": "1",
           "content-type": "application/json",
-          "accept": "*/*",
-          "sec-fetch-site": "cross-site",
-          "sec-fetch-mode": "cors",
-          "sec-fetch-dest": "empty",
-          "referer": "${XIZI_REFERER}",
-          "accept-encoding": "gzip, deflate, br",
-          "accept-language": "zh-CN,zh;q=0.9",
-          "priority": "u=1, i"
+          "referer": "https://xcx.hzxzdwsc.com",
+          "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 MicroMessenger/7.0.20.1781(0x6700143B) NetType/WIFI MiniProgramEnv/Windows WindowsWechat/WMPF WindowsWechat(0x63090a13) UnifiedPCWindowsWechat(0xf2541939) XWEB/19841",
+          "xweb_xhr": "1"
+        },
+        "json": {
+          "id": "{{game_id}}"
+        }
+      },
+      "guige_endpoint": {
+        "method": "POST",
+        "url": "https://xcx.hzxzdwsc.com/api/index/guige",
+        "headers": {
+          "content-type": "application/json",
+          "referer": "https://xcx.hzxzdwsc.com",
+          "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 MicroMessenger/7.0.20.1781(0x6700143B) NetType/WIFI MiniProgramEnv/Windows WindowsWechat/WMPF WindowsWechat(0x63090a13) UnifiedPCWindowsWechat(0xf2541939) XWEB/19841",
+          "xweb_xhr": "1"
         },
         "json": {
           "id": "{{game_id}}",
-          "uuid": "{{uuid}}"
+          "guige": "{{guige}}"
         }
       },
       "price_rules": {
-        "calculation": "first_available(recycle_price_paths) or sell_price - deduct_price",
+        "calculation": "guige.data.price.hs_price_2; fallback hs_price_1",
         "sell_price_paths": [
-          "data.sellPrice",
-          "data.salePrice",
-          "data.price",
-          "data.commodityPrice"
+          "guige.data.price.price"
         ],
         "recycle_price_paths": [
-          "data.receivePrice",
-          "data.recyclePrice",
-          "data.recoveryPrice",
-          "data.buybackPrice"
+          "guige.data.price.hs_price_2",
+          "guige.data.price.hs_price_1"
         ],
-        "deduct_price_paths": [
-          "data.deductPrice",
-          "data.minusPrice",
-          "data.offsetPrice"
-        ],
-        "notes": "字段结构需用真实响应确认；parser 已兼容常见 recycle/receive/buyback 字段。"
+        "name_path": "data.goods.title",
+        "item_id_path": "data.goods.id"
       }
     },
     "baibiandui": {
@@ -244,6 +237,37 @@
         "recycle_price_path": "specList[].recyclePrice",
         "name_path": "name",
         "item_id_path": "cardsId"
+      }
+    },
+    "buerjia": {
+      "name": "不二家",
+      "enabled": true,
+      "parser": "buerjia",
+      "endpoint": {
+        "method": "POST",
+        "url": "https://bejdw.crystal-cloud.top/api/games/detail",
+        "headers": {
+          "content-type": "application/json",
+          "referer": "https://bejdw.crystal-cloud.top/api/",
+          "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 MicroMessenger/7.0.20.1781(0x6700143B) NetType/WIFI MiniProgramEnv/Windows WindowsWechat/WMPF WindowsWechat(0x63090a13) UnifiedPCWindowsWechat(0xf2541939) XWEB/19841",
+          "xweb_xhr": "1"
+        },
+        "json": {
+          "id": "{{game_id}}"
+        }
+      },
+      "price_rules": {
+        "calculation": "data.box + data.notaobao",
+        "sell_price_paths": [
+          "data.nobox"
+        ],
+        "recycle_price_paths": [
+          "data.box"
+        ],
+        "other_shop_adjustment_price_path": "data.notaobao",
+        "in_store_adjustment_price_path": "data.taobao",
+        "name_path": "data.name",
+        "item_id_path": "data.id"
       }
     }
   }

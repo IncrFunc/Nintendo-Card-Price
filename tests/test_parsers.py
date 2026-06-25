@@ -74,7 +74,7 @@ def test_huoqiangshou_parser_marks_unavailable_when_other_shop_reduce_missing():
     assert parsed.parser_note == "huoqiangshou no other-shop recycle option"
 
 
-@pytest.mark.parametrize("parser_name", ["hangzhouxizi"])
+@pytest.mark.parametrize("parser_name", ["hangzhouxizi", "buerjia"])
 def test_generic_merchant_parsers_find_recycle_price(parser_name):
     parsed = PARSERS[parser_name](
         {
@@ -103,6 +103,70 @@ def test_hangzhouxizi_generic_parser_can_calculate_sell_minus_deduct():
         }
     )
     assert parsed.recycle_price == 195.0
+
+
+def test_hangzhouxizi_uses_guige_other_shop_recycle_price():
+    parsed = PARSERS["hangzhouxizi"](
+        {
+            "detail": {
+                "code": 1,
+                "data": {
+                    "goods": {
+                        "id": 50,
+                        "title": "NS塞尔达传说",
+                        "price": 223,
+                    }
+                },
+            },
+            "guige": {
+                "code": 1,
+                "data": {
+                    "price": {
+                        "price": 223,
+                        "hs_price_1": 203,
+                        "hs_price_2": 200,
+                    }
+                }
+            },
+        }
+    )
+
+    assert parsed.game_name == "NS塞尔达传说"
+    assert parsed.item_id == "50"
+    assert parsed.status == "ok"
+    assert parsed.recycle_price == 200.0
+    assert parsed.sell_price == 223.0
+    assert parsed.parser_note == "recycle_price=guige.data.price.hs_price_2"
+
+
+def test_hangzhouxizi_marks_removed_goods_as_unavailable():
+    parsed = PARSERS["hangzhouxizi"]({"code": 0, "msg": "商品已下架", "data": None})
+
+    assert parsed.status == "unavailable"
+    assert parsed.recycle_price is None
+    assert parsed.parser_note == "hangzhouxizi 商品已下架"
+
+
+def test_buerjia_parser_uses_box_plus_notaobao_for_other_shop_price():
+    parsed = PARSERS["buerjia"](
+        {
+            "code": 1,
+            "data": {
+                "id": 3,
+                "name": "NS1 塞尔达传说 荒野之息",
+                "box": "220.00",
+                "nobox": "205.00",
+                "taobao": "-20.00",
+                "notaobao": "-20.00",
+            },
+        }
+    )
+
+    assert parsed.game_name == "NS1 塞尔达传说 荒野之息"
+    assert parsed.item_id == "3"
+    assert parsed.sell_price == 205.0
+    assert parsed.recycle_price == 200.0
+    assert parsed.parser_note == "recycle_price=data.box+data.notaobao"
 
 
 def test_baibiandui_parser_handles_second_hand_price_fields():

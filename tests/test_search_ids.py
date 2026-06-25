@@ -26,11 +26,38 @@ def test_normalize_search_records_for_captured_shapes():
         {"list": [{"cardsId": 2500, "name": "塞尔达传说：旷野之息", "price": 212, "generationType": 1}]},
     )
 
+    buerjia = normalize_search_records(
+        "buerjia",
+        {"data": {"list": [{"gameId": 1024, "title": "NS Kirby Discovery", "price": 219}]}},
+    )
+
     assert laolieren[0]["item_id"] == "3174"
     assert hailuo[0]["name"] == "NS 星之卡比 探索发现"
     assert xizi[0]["uuid"] == "uuid-xizi"
     assert mogushijian[0]["item_id"] == "2500"
     assert mogushijian[0]["name"] == "塞尔达传说：旷野之息"
+    assert buerjia[0]["merchant"] == "buerjia"
+    assert buerjia[0]["item_id"] == "1024"
+
+
+def test_normalize_hangzhouxizi_goods_shape():
+    rows = normalize_search_records(
+        "hangzhouxizi",
+        {"data": {"goods": [{"id": 71, "title": "NS星之卡比2探索发现", "price": 210}]}},
+    )
+
+    assert rows[0]["item_id"] == "71"
+    assert rows[0]["name"] == "NS星之卡比2探索发现"
+
+
+def test_normalize_buerjia_paginated_data_shape():
+    rows = normalize_search_records(
+        "buerjia",
+        {"data": {"data": [{"id": 30, "name": "NS1 星之卡比新星同盟", "recycle_price": 120}]}},
+    )
+
+    assert rows[0]["item_id"] == "30"
+    assert rows[0]["name"] == "NS1 星之卡比新星同盟"
 
 
 def test_search_keywords_include_rules_and_custom_keyword():
@@ -44,6 +71,57 @@ def test_search_keywords_include_rules_and_custom_keyword():
 
     assert keywords[0] == "王国之泪"
     assert "塞尔达传说 王国之泪" in keywords
+
+
+def test_search_keywords_expand_explicit_synonyms():
+    game = {
+        "slug": "zelda-breath-of-the-wild",
+        "name": "塞尔达传说 旷野之息",
+        "search_keyword": "旷野之息",
+    }
+
+    keywords = search_keywords_for_game(game)
+
+    assert "旷野之息" in keywords
+    assert "荒野之息" in keywords
+
+
+def test_build_search_matches_expands_override_search_keywords(monkeypatch):
+    config = {
+        "settings": {"request": {}},
+        "merchants": {"hangzhouxizi": {"name": "杭州西子"}},
+        "games": [
+            {
+                "slug": "zelda-breath-of-the-wild",
+                "name": "塞尔达传说 旷野之息",
+                "platform": "Nintendo Switch",
+                "enabled": True,
+                "merchant_ids": {"hangzhouxizi": {"game_id": ""}},
+            }
+        ],
+    }
+    seen = []
+
+    def fake_search_all_merchants(keyword, **kwargs):
+        seen.append(keyword)
+        return {
+            "hangzhouxizi": {
+                "status": "ok",
+                "records": [{"name": "NS 塞尔达传说 荒野之息", "item_id": "796"}],
+            }
+        }
+
+    monkeypatch.setattr("nsg_price.search_ids.search_all_merchants", fake_search_all_merchants)
+
+    matches = build_search_matches(
+        config,
+        game_slug="zelda-breath-of-the-wild",
+        merchant="hangzhouxizi",
+        search_keywords=["旷野之息"],
+    )
+
+    assert seen == [["旷野之息", "荒野之息"]]
+    assert matches[0]["status"] == "matched"
 
 
 def test_search_keywords_include_core_fragments_for_long_titles():
@@ -128,8 +206,8 @@ def test_build_search_matches_can_override_search_keywords(monkeypatch):
 
     matches = build_search_matches(config, game_slug="xenoblade1", merchant="laolieren", search_keywords=["异度神剑"])
 
-    assert seen == [["异度神剑"]]
-    assert matches[0]["keyword"] == "异度神剑"
+    assert seen == [["异度神剑", "异度之刃", "xenoblade"]]
+    assert matches[0]["keyword"] == "异度神剑, 异度之刃, xenoblade"
     assert matches[0]["status"] == "matched"
 
 

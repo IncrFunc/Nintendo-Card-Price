@@ -42,6 +42,12 @@ def _record_day(record: dict[str, Any]) -> str:
         return fetched_at[:10] if len(fetched_at) >= 10 else datetime.now().date().isoformat()
 
 
+def _date_only_record(record: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(record)
+    normalized["fetched_at"] = _record_day(record)
+    return normalized
+
+
 def _load_legacy_prices(path: Path) -> list[dict[str, Any]]:
     if not path.exists() or path.is_dir():
         return []
@@ -154,7 +160,20 @@ def _load_db_prices(
 def _insert_db_prices(path: Path, records: list[dict[str, Any]]) -> None:
     if not records:
         return
+    normalized_records = [_date_only_record(record) for record in records]
     with _connect_db(price_db_path(path)) as connection:
+        for record in normalized_records:
+            connection.execute(
+                """
+                DELETE FROM price_records
+                WHERE substr(fetched_at, 1, 10) = ? AND merchant = ? AND game_slug = ?
+                """,
+                (
+                    str(record.get("fetched_at") or ""),
+                    str(record.get("merchant") or ""),
+                    str(record.get("game_slug") or ""),
+                ),
+            )
         connection.executemany(
             """
             INSERT INTO price_records (fetched_at, merchant, game_slug, status, record_json)
@@ -168,7 +187,7 @@ def _insert_db_prices(path: Path, records: list[dict[str, Any]]) -> None:
                     str(record.get("status") or ""),
                     json.dumps(record, ensure_ascii=False, separators=(",", ":")),
                 )
-                for record in records
+                for record in normalized_records
             ],
         )
 

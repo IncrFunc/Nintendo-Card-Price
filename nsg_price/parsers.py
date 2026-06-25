@@ -5,7 +5,6 @@ from typing import Any, Callable
 
 from .utils import as_money, get_path
 
-
 @dataclass
 class ParsedPrice:
     game_name: str | None
@@ -61,6 +60,7 @@ SELL_PRICE_PATHS = [
     "data.salePrice",
     "data.price",
     "data.goodsPrice",
+    "data.goods.price",
     "data.replacementSecondHandPrice",
     "data.marketPrice",
     "data.info.price",
@@ -283,6 +283,34 @@ def parse_hailuo(data: dict[str, Any]) -> ParsedPrice:
 
 
 def parse_hangzhouxizi(data: dict[str, Any]) -> ParsedPrice:
+    if isinstance(data.get("detail"), dict) or isinstance(data.get("guige"), dict):
+        detail = data.get("detail") if isinstance(data.get("detail"), dict) else {}
+        guige = data.get("guige") if isinstance(data.get("guige"), dict) else {}
+        goods = get_path(detail, "data.goods") or {}
+        guige_price = get_path(guige, "data.price") or {}
+        recycle_price = as_money(guige_price.get("hs_price_2")) if isinstance(guige_price, dict) else None
+        if recycle_price is None and isinstance(guige_price, dict):
+            recycle_price = as_money(guige_price.get("hs_price_1"))
+        if recycle_price is None:
+            raise ParserError("hangzhouxizi missing guige.data.price.hs_price_2")
+        return ParsedPrice(
+            game_name=str(goods.get("title") or goods.get("name")) if isinstance(goods, dict) and (goods.get("title") or goods.get("name")) is not None else None,
+            item_id=str(goods.get("id")) if isinstance(goods, dict) and goods.get("id") is not None else None,
+            sku_id=None,
+            sell_price=as_money(guige_price.get("price")) if isinstance(guige_price, dict) else None,
+            recycle_price=recycle_price,
+            parser_note="recycle_price=guige.data.price.hs_price_2",
+        )
+    if data.get("code") == 0 and data.get("data") is None:
+        return ParsedPrice(
+            game_name=None,
+            item_id=None,
+            sku_id=None,
+            sell_price=None,
+            recycle_price=None,
+            status="unavailable",
+            parser_note=f"hangzhouxizi {data.get('msg') or '商品不可用'}",
+        )
     if data.get("code") == 201 and "uuid" in str(data.get("message", "")).lower():
         raise ParserError("hangzhouxizi requires uuid")
     if data.get("code") == 201 and "系统异常" in str(data.get("message", "")):
@@ -297,7 +325,54 @@ def parse_hangzhouxizi(data: dict[str, Any]) -> ParsedPrice:
             status="skipped",
             parser_note="hangzhouxizi token invalid; refresh XIZI_RECYCLEXCX",
         )
+    goods = get_path(data, "data.goods")
+    if isinstance(goods, dict):
+        name = goods.get("title") or goods.get("name")
+        item_id = goods.get("id")
+        base_price = as_money(goods.get("price"))
+        if base_price is None:
+            raise ParserError("hangzhouxizi missing data.goods.price")
+        return ParsedPrice(
+            game_name=str(name) if name is not None else None,
+            item_id=str(item_id) if item_id is not None else None,
+            sku_id=None,
+            sell_price=base_price,
+            recycle_price=base_price,
+            parser_note="recycle_price=data.goods.price fallback without guige",
+        )
     return parse_generic(data, note="hangzhouxizi parser uses generic field fallback until real response is confirmed")
+
+
+def parse_buerjia(data: dict[str, Any]) -> ParsedPrice:
+    payload = data.get("data") or {}
+    if not isinstance(payload, dict):
+        raise ParserError("buerjia response missing data object")
+    recycle_price = as_money(payload.get("box"))
+    if recycle_price is None and any(payload.get(key) is not None for key in ("recyclePrice", "receivePrice", "buybackPrice")):
+        return parse_generic(data, note="buerjia parser uses generic recycle field fallback")
+    note = "recycle_price=data.box; missing data.notaobao"
+    notaobao = as_money(payload.get("notaobao"))
+    if recycle_price is not None and notaobao is not None:
+        recycle_price += notaobao
+        note = "recycle_price=data.box+data.notaobao"
+    if recycle_price in (None, 0):
+        return ParsedPrice(
+            game_name=str(payload.get("name")) if payload.get("name") is not None else None,
+            item_id=str(payload.get("id")) if payload.get("id") is not None else None,
+            sku_id=None,
+            sell_price=as_money(payload.get("nobox")),
+            recycle_price=None,
+            status="unavailable",
+            parser_note="buerjia missing data.box recycle price",
+        )
+    return ParsedPrice(
+        game_name=str(payload.get("name")) if payload.get("name") is not None else None,
+        item_id=str(payload.get("id")) if payload.get("id") is not None else None,
+        sku_id=None,
+        sell_price=as_money(payload.get("nobox")),
+        recycle_price=recycle_price,
+        parser_note=note,
+    )
 
 
 def parse_baibiandui(data: dict[str, Any]) -> ParsedPrice:
@@ -365,6 +440,7 @@ PARSERS: dict[str, Callable[[dict[str, Any]], ParsedPrice]] = {
     "huoqiangshou": parse_huoqiangshou,
     "hailuo": parse_hailuo,
     "hangzhouxizi": parse_hangzhouxizi,
+    "buerjia": parse_buerjia,
     "baibiandui": parse_baibiandui,
     "mogushijian": parse_mogushijian,
 }

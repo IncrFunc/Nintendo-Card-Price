@@ -1,7 +1,7 @@
 import json
 
 from nsg_price.chart import generate_chart
-from nsg_price.collector import collect, normalize_headers
+from nsg_price.collector import collect, normalize_headers, request_merchant_payload
 from nsg_price.storage import load_prices
 
 
@@ -36,6 +36,39 @@ def test_fetch_missing_ids_does_not_crash(tmp_path):
 def test_normalize_headers_converts_values_to_strings():
     headers = normalize_headers({"xweb_xhr": 1, "content-type": "application/json", "empty": ""})
     assert headers == {"xweb_xhr": "1", "content-type": "application/json"}
+
+
+def test_hangzhouxizi_request_payload_fetches_guige_with_bianma(monkeypatch):
+    calls = []
+
+    def fake_request_json(endpoint, _request_settings):
+        calls.append(endpoint)
+        if "guige" in endpoint["url"]:
+            return {"code": 1, "data": {"price": {"hs_price_2": 470}}}
+        return {"code": 1, "data": {"goods": {"id": 50, "title": "NS塞尔达传说"}}}
+
+    monkeypatch.setattr("nsg_price.collector.request_json", fake_request_json)
+
+    payload = request_merchant_payload(
+        {
+            "parser": "hangzhouxizi",
+            "guige_endpoint": {
+                "method": "POST",
+                "url": "https://xcx.hzxzdwsc.com/api/index/guige",
+                "json": {"id": "{{game_id}}", "guige": "{{guige}}"},
+            },
+        },
+        {
+            "method": "POST",
+            "url": "https://xcx.hzxzdwsc.com/api/index/detail",
+            "json": {"id": "50"},
+            "_context": {"game_id": "50", "bianma": "16941779810958560938"},
+        },
+        {},
+    )
+
+    assert payload["guige"]["data"]["price"]["hs_price_2"] == 470
+    assert calls[1]["json"] == {"id": "50", "guige": "16941779810958560938"}
 
 
 def test_fetch_missing_ids_does_not_persist_skips(tmp_path):

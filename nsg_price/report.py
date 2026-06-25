@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from .aggregation import build_session_average_series, date_key, record_session, session_label
+from .aggregation import build_daily_average_series, date_key, record_session, session_label
 from .paths import report_dir
 from .storage import configured_price_path, load_price_records
 from .utils import write_json
@@ -20,7 +20,7 @@ except ImportError:  # pragma: no cover - optional PNG output.
 
 
 COLORS = ["#0f766e", "#2563eb", "#c2410c", "#7c3aed", "#be123c", "#15803d"]
-MERCHANT_ORDER = ["laolieren", "huoqiangshou", "hailuo", "mogushijian", "baibiandui", "hangzhouxizi"]
+MERCHANT_ORDER = ["laolieren", "huoqiangshou", "hailuo", "mogushijian", "baibiandui", "hangzhouxizi", "buerjia"]
 TREND_MAX_POINTS = 12
 TREND_LOOKBACK_DAYS = 365
 FONT_REGULAR_CANDIDATES = [
@@ -39,7 +39,7 @@ FONT_BOLD_CANDIDATES = [
 TODAY_TABLE_TOP = 204
 TODAY_TABLE_BOTTOM = 1342
 TODAY_TABLE_PAGE_SIZE = 28
-TODAY_MERCHANT_LIMIT = 6
+TODAY_MERCHANT_LIMIT = 8
 
 
 def normalize_session(value: str | None) -> str | None:
@@ -138,15 +138,13 @@ def trend_cutoff_date(target_date: str | None) -> str | None:
 def trend_average_series(records: list[dict[str, Any]], game_slug: str, target_date: str | None = None) -> list[tuple[str, str, float]]:
     cutoff = trend_cutoff_date(target_date)
     series = []
-    for item in build_session_average_series(records, game_slug):
-        if item.get("session") != "pm":
-            continue
+    for item in build_daily_average_series(records, game_slug):
         item_date = item["date"]
         if cutoff and item_date < cutoff:
             continue
         if target_date and item_date > target_date:
             continue
-        series.append((item_date, item["label"], item["avg_price"]))
+        series.append((item_date, item_date[5:], item["avg_price"]))
     return series
 
 
@@ -174,10 +172,10 @@ def build_today_price_table(config: dict[str, Any], records: list[dict[str, Any]
                 }
             )
         rows.append(
-                {
-                    "date": target_date,
-                    "session": normalized_session,
-                    "game_slug": game.get("slug"),
+            {
+                "date": target_date,
+                "session": normalized_session,
+                "game_slug": game.get("slug"),
                 "game_name": game.get("name"),
                 "platform": game.get("platform"),
                 "prices": prices,
@@ -195,7 +193,7 @@ def build_trend_series(config: dict[str, Any], records: list[dict[str, Any]], ta
                 "game_name": game.get("name"),
                 "platform": game.get("platform"),
                 "session_average": [
-                    {"date": date, "label": label, "avg_price": avg_price, "session": "pm"}
+                    {"date": date, "label": label, "avg_price": avg_price, "session": None}
                     for date, label, avg_price in trend_average_series(records, game["slug"], target_date)
                 ],
             }
@@ -235,15 +233,17 @@ def png_text(draw: Any, xy: tuple[int, int], text: str, size: int = 24, fill: st
 def today_column_centers(merchant_count: int) -> tuple[int, list[int]]:
     name_left = 64
     name_right = 408
-    price_left = 460
-    price_right = 988
     count = max(merchant_count, 1)
+    price_left = 388 if count >= 7 else 460
+    price_right = 1024 if count >= 7 else 988
     column_width = (price_right - price_left) / count
     merchant_centers = [round(price_left + column_width * (idx + 0.5)) for idx in range(merchant_count)]
     return (name_left + name_right) // 2, merchant_centers
 
 
 def today_highlight_half_width(merchant_count: int) -> int:
+    if merchant_count >= 7:
+        return 38
     return 40 if merchant_count >= 6 else 46
 
 
@@ -421,7 +421,7 @@ def y_for_value(value: float, chart_y: int, chart_h: int, min_v: float, max_v: f
 def generate_trend_page(records: list[dict[str, Any]], games: list[dict[str, Any]], page_no: int, output: Path, target_date: str | None = None) -> None:
     parts = [
         svg_text(54, 74, "回收价走势", 38, 760),
-        svg_text(54, 112, f"第 {page_no} 页 · 每页 6 款 · 近一年下午趋势", 22, 500, "#64748b"),
+        svg_text(54, 112, f"第 {page_no} 页 · 每页 6 款 · 近一年趋势", 22, 500, "#64748b"),
     ]
     for idx, game in enumerate(games):
         row, col = divmod(idx, 2)
@@ -480,7 +480,7 @@ def generate_trend_png(records: list[dict[str, Any]], games: list[dict[str, Any]
     image = Image.new("RGB", (1080, 1440), "#f7f8fb")
     draw = ImageDraw.Draw(image)
     png_text(draw, (54, 46), "回收价走势", 38, bold=True)
-    png_text(draw, (54, 96), f"第 {page_no} 页 · 每页 6 款 · 近一年下午趋势", 22, "#64748b")
+    png_text(draw, (54, 96), f"第 {page_no} 页 · 每页 6 款 · 近一年趋势", 22, "#64748b")
     for idx, game in enumerate(games):
         row, col = divmod(idx, 2)
         panel_x = 54 + col * 500

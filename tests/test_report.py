@@ -78,10 +78,12 @@ def test_today_columns_spread_visible_merchants_evenly():
     _, four_columns = today_column_centers(4)
     _, five_columns = today_column_centers(5)
     _, six_columns = today_column_centers(6)
+    _, seven_columns = today_column_centers(7)
 
     assert four_columns == [526, 658, 790, 922]
     assert five_columns == [513, 618, 724, 830, 935]
     assert six_columns == [504, 592, 680, 768, 856, 944]
+    assert min(right - left for left, right in zip(seven_columns, seven_columns[1:])) >= 88
     assert today_highlight_half_width(6) == 40
 
 
@@ -190,10 +192,11 @@ def test_trend_chart_uses_axis_price_labels_and_downsampling(tmp_path, monkeypat
     assert 'text-anchor="end">¥' in trend_svg
     assert trend_svg.count('<circle') <= 12
     assert "上午" not in trend_svg
+    assert "下午" not in trend_svg
     assert "Δ" not in trend_svg
     assert "次→" not in trend_svg
-    assert "06-16 下午" in trend_svg
-    assert "06-15 下午" in trend_svg
+    assert "06-16" in trend_svg
+    assert "06-15" in trend_svg
 
 
 def test_lttb_downsample_keeps_first_and_last():

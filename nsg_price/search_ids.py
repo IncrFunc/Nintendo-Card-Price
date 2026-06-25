@@ -14,7 +14,7 @@ from .config_tools import set_id
 from .constants import DEFAULT_XIZI_UUID
 from .utils import write_json
 
-SEARCH_MERCHANTS = ("laolieren", "huoqiangshou", "hailuo", "hangzhouxizi", "baibiandui", "mogushijian")
+SEARCH_MERCHANTS = ("laolieren", "huoqiangshou", "hailuo", "hangzhouxizi", "baibiandui", "mogushijian", "buerjia")
 MINI_HEADERS = {
     "cb-lang": "zh-CN",
     "appid": "wx7f7b845076caaf81",
@@ -121,6 +121,17 @@ def hangzhouxizi_headers(recyclexcx: str | None = None) -> dict[str, str]:
     if token:
         headers["recyclexcx"] = token
     return headers
+
+
+def simple_mini_headers(referer: str) -> dict[str, str]:
+    return {
+        "user-agent": MINI_HEADERS["user-agent"],
+        "xweb_xhr": "1",
+        "content-type": "application/json",
+        "accept": "*/*",
+        "referer": referer,
+        "accept-language": "zh-CN,zh;q=0.9",
+    }
 
 
 def mogushijian_headers(token: str | None = None) -> dict[str, str]:
@@ -329,6 +340,23 @@ def search_keywords_for_game(game: dict[str, Any]) -> list[str]:
     return keywords
 
 
+def expand_search_keywords(game: dict[str, Any], search_keywords: list[str]) -> list[str]:
+    values = [keyword.strip() for keyword in search_keywords if keyword.strip()]
+    normalized_values = {normalize(value) for value in values}
+    for group in MATCH_RULES.get(str(game.get("slug") or ""), []):
+        normalized_group = [normalize(term) for term in group]
+        if any(term in normalized_values for term in normalized_group):
+            values.extend(str(term) for term in group if str(term).strip())
+    seen: set[str] = set()
+    keywords = []
+    for value in values:
+        key = value.lower()
+        if key not in seen:
+            keywords.append(value)
+            seen.add(key)
+    return keywords
+
+
 def search_name_fragments(name: str) -> list[str]:
     fragments = []
     cleaned = re.sub(r"[【】\[\]（）()]", " ", name)
@@ -376,13 +404,13 @@ def parse_hailuo_search_item(item: dict[str, Any]) -> dict[str, Any] | None:
     }
 
 
-def parse_hangzhouxizi_search_item(item: dict[str, Any], uuid: str | None = None) -> dict[str, Any] | None:
-    item_id = item.get("id") or item.get("commodityId")
-    name = item.get("name") or item.get("commodityName") or item.get("title")
+def parse_generic_search_item(item: dict[str, Any], merchant: str, uuid: str | None = None) -> dict[str, Any] | None:
+    item_id = item.get("id") or item.get("commodityId") or item.get("goodsId") or item.get("game_id") or item.get("gameId")
+    name = item.get("name") or item.get("commodityName") or item.get("goodsName") or item.get("title")
     if not item_id or not name:
         return None
     return {
-        "merchant": "hangzhouxizi",
+        "merchant": merchant,
         "item_id": str(item_id),
         "name": str(name),
         "platform": item.get("platform") or item.get("brandName"),
@@ -394,6 +422,10 @@ def parse_hangzhouxizi_search_item(item: dict[str, Any], uuid: str | None = None
         "keyword": item.get("keyword"),
         "alias": item.get("alias"),
     }
+
+
+def parse_hangzhouxizi_search_item(item: dict[str, Any], uuid: str | None = None) -> dict[str, Any] | None:
+    return parse_generic_search_item(item, "hangzhouxizi", uuid=uuid)
 
 
 def normalize_search_records(merchant: str, payload: dict[str, Any], uuid: str | None = None) -> list[dict[str, Any]]:
@@ -413,10 +445,16 @@ def normalize_search_records(merchant: str, payload: dict[str, Any], uuid: str |
         rows = rows_at(payload, [("data",), ("data", "list"), ("data", "rows"), ("rows",)])
         parser = parse_hailuo_search_item
     elif merchant == "hangzhouxizi":
-        rows = rows_at(payload, [("data", "list"), ("data", "rows"), ("rows",), ("data",)])
+        rows = rows_at(payload, [("data", "goods"), ("data", "list"), ("data", "rows"), ("rows",), ("data",)])
 
         def parser(item: dict[str, Any]) -> dict[str, Any] | None:
             return parse_hangzhouxizi_search_item(item, uuid=uuid)
+
+    elif merchant == "buerjia":
+        rows = rows_at(payload, [("data", "data"), ("data", "list"), ("data", "rows"), ("list",), ("rows",), ("data",)])
+
+        def parser(item: dict[str, Any]) -> dict[str, Any] | None:
+            return parse_generic_search_item(item, "buerjia")
 
     else:
         raise ValueError(f"unsupported merchant: {merchant}")
@@ -508,9 +546,9 @@ def request_search_payload(
         )
     elif merchant == "hangzhouxizi":
         response = session.post(
-            "https://api.recycle.steamlease.cn/commodity/getCommodityListPage",
-            headers=hangzhouxizi_headers(),
-            json={"uuid": uuid or DEFAULT_XIZI_UUID, "classify_id": "", "name": keyword, "pageNum": page, "pageSize": page_size},
+            "https://xcx.hzxzdwsc.com/api/index/goods",
+            headers=simple_mini_headers("https://xcx.hzxzdwsc.com"),
+            json={"name": keyword, "keyword": keyword, "page": page, "pageNum": page, "pageSize": page_size},
             timeout=timeout,
             verify=False,
         )
@@ -519,6 +557,14 @@ def request_search_payload(
             "https://api.mogushijian.com/alia/used/search",
             headers=mogushijian_headers(),
             json={"name": keyword, "page": page, "type": 2},
+            timeout=timeout,
+            verify=False,
+        )
+    elif merchant == "buerjia":
+        response = session.post(
+            "https://bejdw.crystal-cloud.top/api/games/list",
+            headers=simple_mini_headers("https://bejdw.crystal-cloud.top/api/"),
+            json={"search": keyword, "page": page, "pageNum": page, "pageSize": page_size, "limit": page_size},
             timeout=timeout,
             verify=False,
         )
@@ -597,7 +643,7 @@ def build_search_matches(
     merchants = [merchant] if merchant else [key for key in SEARCH_MERCHANTS if key in config.get("merchants", {})]
     matches: list[dict[str, Any]] = []
     for game in enabled_games(config, game_slug):
-        keywords = [keyword.strip() for keyword in search_keywords or [] if keyword.strip()] or search_keywords_for_game(game)
+        keywords = expand_search_keywords(game, search_keywords or []) if search_keywords else search_keywords_for_game(game)
         xizi_uuid = (
             config.get("settings", {}).get("default_xizi_uuid")
             or game.get("merchant_ids", {}).get("hangzhouxizi", {}).get("uuid")

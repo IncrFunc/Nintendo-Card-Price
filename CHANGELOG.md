@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.3 - 2026-06-26
+
+- Added Hangzhou Xizi and Hangzhou Buerjia merchant collection support.
+- Fixed Hangzhou Xizi spec pricing by requesting `/api/index/guige` with the product `bianma`.
+- Fixed Buerjia recycle pricing to use `box + notaobao`.
+- Changed SQLite price records to store date-only `fetched_at` values and replace same-day game/merchant rows on later collections.
+- Changed trend reports to use daily averages instead of afternoon-only points.
+
 ## 0.2.2 - 2026-06-25
 
 - Changed the default daily automation schedule to collect once at 11:50 and publish at a random minute from 12:00-12:10.

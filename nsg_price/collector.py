@@ -30,8 +30,6 @@ def has_empty_token(merchant: dict[str, Any]) -> bool:
     for value in headers.values():
         if isinstance(value, str) and value.strip().lower() == "bearer":
             return True
-        if isinstance(value, str) and value.strip().lower() == "bearer ":
-            return True
     return False
 
 
@@ -119,6 +117,17 @@ def request_merchant_payload(merchant: dict[str, Any], endpoint: dict[str, Any],
             "detail": request_json(endpoint, request_settings),
             "apprize": request_json(apprize_endpoint, request_settings),
         }
+    if parser_name == "hangzhouxizi" and merchant.get("guige_endpoint"):
+        context = endpoint.get("_context", {})
+        detail = request_json(endpoint, request_settings)
+        guige = context.get("guige") or context.get("bianma")
+        if not guige:
+            return detail
+        guige_endpoint = render_template(merchant["guige_endpoint"], {**context, "guige": guige})
+        return {
+            "detail": detail,
+            "guige": request_json(guige_endpoint, request_settings),
+        }
     return request_json(endpoint, request_settings)
 
 
@@ -175,6 +184,8 @@ def collect(config: dict[str, Any], game_slug: str | None = None, dry_run: bool 
             context = {**ids, "game_id": game_id}
             if merchant_key == "hangzhouxizi" and not context.get("uuid"):
                 context["uuid"] = default_xizi_uuid
+            if merchant_key == "hangzhouxizi" and not context.get("guige") and context.get("bianma"):
+                context["guige"] = context["bianma"]
             endpoint = render_template(merchant.get("endpoint", {}), context)
             endpoint["_context"] = context
             parser_name = merchant.get("parser", merchant_key)
