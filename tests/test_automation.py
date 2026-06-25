@@ -1,7 +1,8 @@
 import random
 from datetime import datetime
+from pathlib import Path
 
-from nsg_price.automation import pick_time_in_window, planned_publish_times_for_date, run_daily_automation
+from nsg_price.automation import pick_time_in_window, planned_publish_times_for_date, run_daily_automation, run_xhs_adb_publish
 
 
 def test_pick_time_in_window_is_inclusive_and_deterministic():
@@ -39,3 +40,42 @@ def test_daily_automation_reloads_config_for_due_fetch(monkeypatch):
     )
 
     assert seen_configs == [{"version": "fresh"}]
+
+
+def test_adb_publish_uses_configured_publish_session(monkeypatch, tmp_path):
+    calls = []
+
+    class Result:
+        status = "submitted"
+        serial = "2527b8b"
+        image_count = 3
+        remote_dir = "/sdcard/Pictures/NintendoGamePrice/2026-06-25-am"
+        screenshot = Path("shot.png")
+
+    def fake_publish(pack_dir, **kwargs):
+        calls.append((pack_dir, kwargs))
+        return Result()
+
+    monkeypatch.setattr("nsg_price.automation.publish_pack_via_adb", fake_publish)
+
+    event = run_xhs_adb_publish(
+        {"settings": {"storage": {"publish_dir": str(tmp_path / "publish"), "runtime_dir": str(tmp_path / "runtime")}}},
+        target_date="2026-06-25",
+        session="am",
+        adb_path="adb.exe",
+        serial="2527b8b",
+        log=lambda message: None,
+    )
+
+    assert event.kind == "xhs-adb-publish"
+    assert calls[0][0] == tmp_path / "publish" / "2026-06-25" / "am"
+    assert calls[0][1]["publish"] is True
+    assert calls[0][1]["adb_path"] == "adb.exe"
+    assert calls[0][1]["serial"] == "2527b8b"
+
+
+def test_daily_automation_defaults_to_noon_adb():
+    source = Path("nsg_price/automation.py").read_text(encoding="utf-8")
+    assert '["11:50"]' in source
+    assert '["12:00-12:10"]' in source
+    assert 'or "adb"' in source

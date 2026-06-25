@@ -7,8 +7,9 @@ import random
 from pathlib import Path
 from typing import Callable
 
+from .adb_xiaohongshu import publish_pack_via_adb
 from .collector import collect
-from .paths import today_date
+from .paths import publish_root, runtime_root, today_date
 from .publish import build_publish_pack
 from .xiaohongshu import publish_to_xiaohongshu
 
@@ -118,6 +119,36 @@ def run_xhs_publish(
     return AutomationEvent(kind="xhs-publish", date=date, message=message)
 
 
+def run_xhs_adb_publish(
+    config: dict,
+    *,
+    target_date: str | None = None,
+    session: str | None = None,
+    adb_path: str | Path | None = None,
+    serial: str | None = None,
+    output_dir: str | Path | None = None,
+    log: Logger = print,
+) -> AutomationEvent:
+    date = target_date or today_date()
+    pack_dir = publish_root(config) / date
+    if session:
+        pack_dir = pack_dir / session
+    log(f"[{datetime.now().isoformat(timespec='seconds')}] xhs adb publish started for {date} {session or ''}".rstrip())
+    result = publish_pack_via_adb(
+        pack_dir,
+        adb_path=adb_path,
+        serial=serial,
+        publish=True,
+        output_dir=output_dir or runtime_root(config) / "adb-xhs",
+    )
+    message = (
+        f"xhs adb status={result.status}, device={result.serial}, images={result.image_count}, "
+        f"remote_dir={result.remote_dir}, screenshot={result.screenshot}"
+    )
+    log(f"[{datetime.now().isoformat(timespec='seconds')}] {message}")
+    return AutomationEvent(kind="xhs-adb-publish", date=date, message=message)
+
+
 def run_daily_automation(
     config: dict,
     *,
@@ -128,23 +159,32 @@ def run_daily_automation(
     launch_edge: bool = False,
     profile_dir: str | Path | None = None,
     edge_path: str | Path | None = None,
+    publish_driver: str | None = None,
+    adb_path: str | Path | None = None,
+    adb_serial: str | None = None,
+    adb_output_dir: str | Path | None = None,
     once: bool = False,
     poll_seconds: int = 20,
     log: Logger = print,
 ) -> None:
     settings = config.get("settings", {})
-    default_fetch_times = settings.get("daily_fetch_times") or ["09:50", "15:50"]
-    default_publish_windows = settings.get("daily_publish_windows") or settings.get("daily_publish_times") or ["10:00-10:10", "16:00-16:10"]
+    default_fetch_times = settings.get("daily_fetch_times") or ["11:50"]
+    default_publish_windows = settings.get("daily_publish_windows") or settings.get("daily_publish_times") or ["12:00-12:10"]
     normalized_fetch_times = _normalize_times(fetch_times, default_fetch_times)
     normalized_publish_windows = _normalize_publish_windows(publish_times, default_publish_windows)
+    resolved_publish_driver = publish_driver or settings.get("daily_publish_driver") or "adb"
+    if resolved_publish_driver not in {"adb", "browser"}:
+        raise ValueError(f"unsupported publish driver: {resolved_publish_driver}")
     planned_date = ""
     planned_publish_times: dict[str, str] = {}
     log(
         "automation started: "
         f"fetch at {', '.join(normalized_fetch_times)}; "
-        f"xhs publish windows {', '.join(normalized_publish_windows)}"
+        f"xhs publish windows {', '.join(normalized_publish_windows)}; "
+        f"publish driver {resolved_publish_driver}"
     )
     ran: set[tuple[str, str, str]] = set()
+    latest_fetch_session_by_date: dict[str, str] = {}
 
     def current_config() -> dict:
         return config_loader() if config_loader else config
@@ -164,6 +204,7 @@ def run_daily_automation(
             session = session_for_schedule_time(current_time)
             try:
                 run_fetch_and_pack(current_config(), target_date=date, session=session, log=log)
+                latest_fetch_session_by_date[date] = session
             except Exception as exc:
                 log(f"[{datetime.now().isoformat(timespec='seconds')}] fetch failed: {exc!r}")
             ran.add(("fetch", date, current_time))
@@ -175,18 +216,29 @@ def run_daily_automation(
             if current_time == planned_time and ("xhs-publish", date, window) not in ran
         ]
         for publish_window in due_publish_windows:
-            session = session_for_schedule_time(current_time)
+            session = latest_fetch_session_by_date.get(date) or session_for_schedule_time(current_time)
             try:
-                run_xhs_publish(
-                    current_config(),
-                    target_date=date,
-                    session=session,
-                    port=port,
-                    launch_edge=launch_edge,
-                    profile_dir=profile_dir,
-                    edge_path=edge_path,
-                    log=log,
-                )
+                if resolved_publish_driver == "adb":
+                    run_xhs_adb_publish(
+                        current_config(),
+                        target_date=date,
+                        session=session,
+                        adb_path=adb_path,
+                        serial=adb_serial,
+                        output_dir=adb_output_dir,
+                        log=log,
+                    )
+                else:
+                    run_xhs_publish(
+                        current_config(),
+                        target_date=date,
+                        session=session,
+                        port=port,
+                        launch_edge=launch_edge,
+                        profile_dir=profile_dir,
+                        edge_path=edge_path,
+                        log=log,
+                    )
             except Exception as exc:
                 log(f"[{datetime.now().isoformat(timespec='seconds')}] xhs publish failed: {exc!r}")
             ran.add(("xhs-publish", date, publish_window))

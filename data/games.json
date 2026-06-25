@@ -169,7 +169,7 @@
         "game_id": "1270"
       },
       "hailuo": {
-        "game_id": "43489"
+        "game_id": "1038"
       },
       "hangzhouxizi": {
         "game_id": "1006"
@@ -258,6 +258,32 @@
       },
       "mogushijian": {
         "game_id": "2482"
+      }
+    }
+  },
+  {
+    "slug": "mario-river",
+    "name": "马里奥银河1+2",
+    "platform": "Nintendo Switch",
+    "enabled": true,
+    "merchant_ids": {
+      "laolieren": {
+        "game_id": "3694"
+      },
+      "huoqiangshou": {
+        "game_id": "3504"
+      },
+      "hailuo": {
+        "game_id": "2078"
+      },
+      "hangzhouxizi": {
+        "game_id": ""
+      },
+      "baibiandui": {
+        "game_id": "2c90894098c062e4019981d3e2267dd3"
+      },
+      "mogushijian": {
+        "game_id": "2833"
       }
     }
   },

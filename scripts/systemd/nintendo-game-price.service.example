@@ -11,6 +11,11 @@ Environment=CONFIG=config.json
 Environment=UI_HOST=127.0.0.1
 Environment=UI_PORT=8765
 Environment=XHS_PORT=9223
+Environment=PUBLISH_DRIVER=adb
+# Optional when more than one Android device is connected:
+# Environment=ADB_DEVICE=2527b8b
+# Optional when adb is not on PATH:
+# Environment=ADB_PATH=/opt/android-sdk/platform-tools/adb
 ExecStart=/opt/Nintendo_Game_Price/scripts/run_auto_linux.sh
 Restart=always
 RestartSec=10

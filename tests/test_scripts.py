@@ -26,6 +26,9 @@ def test_linux_scripts_and_systemd_example_are_available():
     assert "DRY_RUN" in run_fetch
     assert "main.py --config" in run_fetch
     assert "auto --ui" in run_auto
+    assert "--publish-driver" in run_auto
+    assert "PUBLISH_DRIVER" in run_auto
+    assert "ADB_DEVICE" in run_auto
     assert "UI_HOST" in run_auto
     assert "Nintendo Game Price daily automation" in service
     assert "Restart=always" in service

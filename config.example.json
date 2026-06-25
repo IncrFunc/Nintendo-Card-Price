@@ -2,12 +2,10 @@
   "settings": {
     "timezone": "Asia/Shanghai",
     "daily_fetch_times": [
-      "09:50",
-      "15:50"
+      "11:50"
     ],
     "daily_publish_windows": [
-      "10:00-10:10",
-      "16:00-16:10"
+      "12:00-12:10"
     ],
     "request": {
       "timeout_seconds": 10,
@@ -26,7 +24,8 @@
       "runtime_dir": "data/runtime"
     },
     "games_file": "data/games.example.json",
-    "default_xizi_uuid": "6c99e77fba4f44f9ac46b767fd079f0b"
+    "default_xizi_uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
+    "daily_publish_driver": "adb"
   },
   "merchants": {
     "laolieren": {

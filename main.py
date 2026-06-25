@@ -7,9 +7,10 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from nsg_price.adb_xiaohongshu import adb_device_report, publish_pack_via_adb
 from nsg_price.chart import generate_chart
 from nsg_price.api_test import test_configured_apis
-from nsg_price.automation import run_daily_automation, run_fetch_and_pack, run_xhs_publish
+from nsg_price.automation import run_daily_automation, run_fetch_and_pack, run_xhs_adb_publish, run_xhs_publish
 from nsg_price.collector import collect
 from nsg_price.config import load_config, save_config
 from nsg_price.config_tools import add_game, init_task_games, remove_game, set_game_enabled, set_id, update_ids_from_file
@@ -184,6 +185,34 @@ def cmd_xhs_edge(args: argparse.Namespace) -> None:
     print(f"edge launched for Xiaohongshu automation: port={args.port}")
 
 
+def cmd_xhs_adb_doctor(args: argparse.Namespace) -> None:
+    report = adb_device_report(adb_path=args.adb_path, serial=args.device)
+    for key, value in report.items():
+        print(f"{key}: {value}")
+
+
+def cmd_xhs_adb_publish(args: argparse.Namespace) -> None:
+    config = load_config(args.config)
+    date = args.date or datetime.now().date().isoformat()
+    pack_dir = Path(args.pack_dir) if args.pack_dir else publish_root(config) / date
+    if args.session:
+        pack_dir = pack_dir / args.session
+    result = publish_pack_via_adb(
+        pack_dir,
+        adb_path=args.adb_path,
+        serial=args.device,
+        publish=args.publish,
+        output_dir=args.output_dir,
+    )
+    print(f"xhs adb status: {result.status}")
+    print(f"device: {result.serial}")
+    print(f"title: {result.title}")
+    print(f"images: {result.image_count}")
+    print(f"remote dir: {result.remote_dir}")
+    print(f"screenshot: {result.screenshot}")
+    print(result.message)
+
+
 def cmd_auto_fetch(args: argparse.Namespace) -> None:
     config = load_config(args.config)
     run_fetch_and_pack(config, target_date=args.date, session=args.session)
@@ -191,15 +220,26 @@ def cmd_auto_fetch(args: argparse.Namespace) -> None:
 
 def cmd_auto_publish(args: argparse.Namespace) -> None:
     config = load_config(args.config)
-    run_xhs_publish(
-        config,
-        target_date=args.date,
-        session=args.session,
-        port=args.port,
-        launch_edge=args.launch_edge,
-        profile_dir=args.profile_dir,
-        edge_path=args.edge_path,
-    )
+    driver = args.driver or config.get("settings", {}).get("daily_publish_driver") or "adb"
+    if driver == "adb":
+        run_xhs_adb_publish(
+            config,
+            target_date=args.date,
+            session=args.session,
+            adb_path=args.adb_path,
+            serial=args.device,
+            output_dir=args.output_dir,
+        )
+    else:
+        run_xhs_publish(
+            config,
+            target_date=args.date,
+            session=args.session,
+            port=args.port,
+            launch_edge=args.launch_edge,
+            profile_dir=args.profile_dir,
+            edge_path=args.edge_path,
+        )
 
 
 def cmd_auto(args: argparse.Namespace) -> None:
@@ -236,6 +276,10 @@ def cmd_auto(args: argparse.Namespace) -> None:
         launch_edge=args.launch_edge,
         profile_dir=args.profile_dir,
         edge_path=args.edge_path,
+        publish_driver=args.publish_driver,
+        adb_path=args.adb_path,
+        adb_serial=args.device,
+        adb_output_dir=args.adb_output_dir,
         once=args.once,
         poll_seconds=args.poll_seconds,
         log=log,
@@ -395,6 +439,21 @@ def build_parser() -> argparse.ArgumentParser:
     xhs_edge.add_argument("--edge-path", help="path to msedge.exe")
     xhs_edge.set_defaults(func=cmd_xhs_edge)
 
+    xhs_adb_doctor = subparsers.add_parser("xhs-adb-doctor", help="check Android device readiness for Xiaohongshu")
+    xhs_adb_doctor.add_argument("--device", help="ADB device serial; auto-selected when only one device is connected")
+    xhs_adb_doctor.add_argument("--adb-path", help="path to adb executable")
+    xhs_adb_doctor.set_defaults(func=cmd_xhs_adb_doctor)
+
+    xhs_adb_publish = subparsers.add_parser("xhs-adb-publish", help="fill or publish a Xiaohongshu post on Android")
+    xhs_adb_publish.add_argument("--date", help="YYYY-MM-DD; defaults to today")
+    xhs_adb_publish.add_argument("--session", choices=["am", "pm"], help="publish-pack session")
+    xhs_adb_publish.add_argument("--pack-dir", help="explicit publish-pack directory")
+    xhs_adb_publish.add_argument("--device", help="ADB device serial")
+    xhs_adb_publish.add_argument("--adb-path", help="path to adb executable")
+    xhs_adb_publish.add_argument("--output-dir", help="local screenshot directory")
+    xhs_adb_publish.add_argument("--publish", action="store_true", help="click the final publish button")
+    xhs_adb_publish.set_defaults(func=cmd_xhs_adb_publish)
+
     auto_fetch = subparsers.add_parser("auto-fetch", help="collect prices and build today's publish pack")
     auto_fetch.add_argument("--date", help="YYYY-MM-DD; defaults to today")
     auto_fetch.add_argument("--session", choices=["am", "pm"], help="force publish-pack session")
@@ -407,6 +466,10 @@ def build_parser() -> argparse.ArgumentParser:
     auto_publish.add_argument("--launch-edge", action="store_true", help="launch Edge with remote debugging before publish")
     auto_publish.add_argument("--profile-dir", help="Edge user-data-dir to use with --launch-edge")
     auto_publish.add_argument("--edge-path", help="path to msedge.exe")
+    auto_publish.add_argument("--driver", choices=["adb", "browser"], help="publish through Android ADB or browser; defaults to settings.daily_publish_driver or adb")
+    auto_publish.add_argument("--device", help="ADB device serial; auto-selected when only one device is connected")
+    auto_publish.add_argument("--adb-path", help="path to adb executable")
+    auto_publish.add_argument("--output-dir", help="local ADB screenshot directory")
     auto_publish.set_defaults(func=cmd_auto_publish)
 
     auto = subparsers.add_parser("auto", help="run daily Python automation loop")
@@ -420,6 +483,10 @@ def build_parser() -> argparse.ArgumentParser:
     auto.add_argument("--launch-edge", action="store_true", help="launch Edge with remote debugging when publishing")
     auto.add_argument("--profile-dir", help="Edge user-data-dir to use with --launch-edge")
     auto.add_argument("--edge-path", help="path to msedge.exe")
+    auto.add_argument("--publish-driver", choices=["adb", "browser"], help="publish through Android ADB or browser; defaults to settings.daily_publish_driver or adb")
+    auto.add_argument("--device", help="ADB device serial; auto-selected when only one device is connected")
+    auto.add_argument("--adb-path", help="path to adb executable")
+    auto.add_argument("--adb-output-dir", help="local ADB screenshot directory")
     auto.add_argument("--poll-seconds", type=int, default=20)
     auto.add_argument("--log-file", default="logs/automation.log")
     auto.add_argument("--ui", action="store_true", help="start the web UI in the same Python process")

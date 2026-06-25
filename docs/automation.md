@@ -1,45 +1,42 @@
 # Daily automation
 
-This project can run the whole daily flow with Python only:
+This project can run the whole daily flow with one long-running Python command:
 
-- `09:50` collect cartridge prices and build `data/publish/<today>/am/`.
-- `15:50` collect again and build `data/publish/<today>/pm/`.
-- A random minute from `10:00-10:10` publishes the morning pack to Xiaohongshu.
-- A random minute from `16:00-16:10` publishes the afternoon pack to Xiaohongshu.
+- `11:50` collect cartridge prices and build `data/publish/<today>/am/`.
+- One random minute from `12:00-12:10` publishes that pack to Xiaohongshu through an Android phone over ADB.
 
-## First-time setup
+## First-time Android setup
 
 Install dependencies:
 
 ```bash
 pip install -r requirements.txt
-playwright install chromium
 ```
 
-Start a controllable Edge window:
+Connect the phone with USB debugging enabled, keep Xiaohongshu logged in, and check readiness:
 
 ```bash
-python main.py xhs-edge
+python main.py xhs-adb-doctor
 ```
 
-Log in to Xiaohongshu Creator Center in that Edge window. Keep this Edge profile logged in.
+If more than one device is connected, pass the serial shown by `adb devices`:
+
+```bash
+python main.py xhs-adb-doctor --device 2527b8b
+```
 
 ## Run the daily automation loop
 
+One command starts daily collection, the random publish window, and the local management UI:
+
 ```bash
-python main.py auto
+python main.py auto --ui
 ```
 
-Run the daily automation loop and the web UI with one command:
+The current defaults are equivalent to:
 
 ```bash
-python main.py auto --ui --open-browser
-```
-
-Defaults:
-
-```bash
-python main.py auto --fetch-time 09:50 --fetch-time 15:50 --publish-time 10:00-10:10 --publish-time 16:00-16:10
+python main.py auto --ui --fetch-time 11:50 --publish-time 12:00-12:10 --publish-driver adb
 ```
 
 The process must stay running. If it is closed, scheduled jobs will not run.
@@ -49,35 +46,38 @@ The process must stay running. If it is closed, scheduled jobs will not run.
 Run the fetch and publish-pack step immediately:
 
 ```bash
-python main.py auto-fetch
 python main.py auto-fetch --session am
-python main.py auto-fetch --session pm
 ```
 
-Run the Xiaohongshu publish step immediately:
+Fill and publish today's pack on Android immediately:
 
 ```bash
-python main.py auto-publish
-python main.py auto-publish --session am
-python main.py auto-publish --session pm
+python main.py auto-publish --driver adb --session am
 ```
 
-Upload and fill the Xiaohongshu page without clicking publish:
+Fill the Android Xiaohongshu post without clicking publish:
 
 ```bash
-python main.py xhs-publish
+python main.py xhs-adb-publish --session am
 ```
 
-Upload, fill, and click publish:
+Fill and click publish:
 
 ```bash
-python main.py xhs-publish --publish
+python main.py xhs-adb-publish --session am --publish
+```
+
+## Browser fallback
+
+The old browser-based publisher is still available:
+
+```bash
+python main.py xhs-edge
+python main.py auto --ui --publish-driver browser --launch-edge
 ```
 
 ## Notes
 
-- The Xiaohongshu step requires Edge remote debugging on port `9223`.
-- If Edge is not running, start it with `python main.py xhs-edge`, then log in.
-- The automation picks one random publish minute inside each publish window every day. Use the manual `xhs-publish` command first if you want to inspect the content before enabling the loop.
-- Morning outputs are written to `data/reports/<date>/am/` and `data/publish/<date>/am/`.
-- Afternoon outputs are written to `data/reports/<date>/pm/` and `data/publish/<date>/pm/`.
+- The automation picks one random publish minute inside each publish window every day.
+- The noon publish uses the latest fetch session from the same day, so the `12:00-12:10` window publishes the `11:50` `am` pack.
+- Android screenshots are written under `data/runtime/adb-xhs/` by default.
