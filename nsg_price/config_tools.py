@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import find_game, save_config
-from .task_defaults import TASK_GAMES
+from .utils import load_json
 
 
 def empty_merchant_ids(config: dict[str, Any]) -> dict[str, dict[str, str]]:
@@ -100,13 +100,21 @@ def remove_game(config: dict[str, Any], *, slug: str) -> None:
     config["games"] = new_games
 
 
-def init_task_games(config: dict[str, Any], *, replace: bool = False) -> int:
+def init_example_games(
+    config: dict[str, Any],
+    *,
+    source_path: str | Path = "data/games.example.json",
+    replace: bool = False,
+) -> int:
+    payload = load_json(source_path)
+    templates = payload.get("games", []) if isinstance(payload, dict) else payload
+    if not isinstance(templates, list):
+        raise ValueError(f"example games file must contain a list: {source_path}")
     existing_by_slug = {game.get("slug"): game for game in config.get("games", [])}
-    merchants = config.get("merchants", {})
     new_games = []
     changed = 0
 
-    for template in TASK_GAMES:
+    for template in templates:
         old = existing_by_slug.get(template["slug"], {})
         merchant_ids = old.get("merchant_ids") or empty_merchant_ids(config)
         item = {

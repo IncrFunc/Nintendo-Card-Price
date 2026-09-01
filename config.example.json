@@ -11,12 +11,11 @@
       "timeout_seconds": 10,
       "retries": 2,
       "retry_backoff_seconds": 1,
-      "verify_ssl": false,
+      "verify_ssl": true,
       "save_raw_response": false
     },
     "storage": {
       "prices_path": "data/prices.db",
-      "prices_json": "data/prices.json",
       "csv_dir": "data/exports",
       "chart_dir": "data/charts",
       "reports_dir": "data/reports",
@@ -24,8 +23,7 @@
       "runtime_dir": "data/runtime"
     },
     "games_file": "data/games.example.json",
-    "default_xizi_uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-    "daily_publish_driver": "adb"
+    "default_xizi_uuid": "6c99e77fba4f44f9ac46b767fd079f0b"
   },
   "merchants": {
     "laolieren": {

@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from .aggregation import build_daily_average_series, date_key, record_session, session_label
+from .aggregation import build_daily_average_series, date_key
 from .paths import report_dir
 from .storage import configured_price_path, load_price_records
 from .utils import write_json
@@ -42,15 +42,6 @@ TODAY_TABLE_PAGE_SIZE = 28
 TODAY_MERCHANT_LIMIT = 8
 
 
-def normalize_session(value: str | None) -> str | None:
-    if value is None:
-        return None
-    lowered = value.strip().lower()
-    if lowered not in {"am", "pm"}:
-        raise ValueError("session must be 'am' or 'pm'")
-    return lowered
-
-
 def price_text(record: dict[str, Any] | None) -> str:
     if not record:
         return "-"
@@ -83,13 +74,10 @@ def truncate_text(text: str, limit: int) -> str:
     return text[: max(limit - 1, 1)] + "…"
 
 
-def latest_records_for_date(records: list[dict[str, Any]], target_date: str, session: str | None = None) -> dict[tuple[str, str], dict[str, Any]]:
+def latest_records_for_date(records: list[dict[str, Any]], target_date: str) -> dict[tuple[str, str], dict[str, Any]]:
     latest: dict[tuple[str, str], dict[str, Any]] = {}
-    normalized_session = normalize_session(session)
     for record in records:
         if date_key(record.get("fetched_at", "")) != target_date:
-            continue
-        if normalized_session and record_session(record) != normalized_session:
             continue
         key = (record.get("game_slug", ""), record.get("merchant", ""))
         if key not in latest or record.get("fetched_at", "") > latest[key].get("fetched_at", ""):
@@ -148,9 +136,8 @@ def trend_average_series(records: list[dict[str, Any]], game_slug: str, target_d
     return series
 
 
-def build_today_price_table(config: dict[str, Any], records: list[dict[str, Any]], target_date: str, session: str | None = None) -> list[dict[str, Any]]:
-    normalized_session = normalize_session(session)
-    latest = latest_records_for_date(records, target_date, normalized_session)
+def build_today_price_table(config: dict[str, Any], records: list[dict[str, Any]], target_date: str) -> list[dict[str, Any]]:
+    latest = latest_records_for_date(records, target_date)
     merchants = visible_merchants(config, latest)
     rows = []
     for game in [game for game in config.get("games", []) if game.get("enabled", True)]:
@@ -174,7 +161,6 @@ def build_today_price_table(config: dict[str, Any], records: list[dict[str, Any]
         rows.append(
             {
                 "date": target_date,
-                "session": normalized_session,
                 "game_slug": game.get("slug"),
                 "game_name": game.get("name"),
                 "platform": game.get("platform"),
@@ -192,8 +178,8 @@ def build_trend_series(config: dict[str, Any], records: list[dict[str, Any]], ta
                 "game_slug": game.get("slug"),
                 "game_name": game.get("name"),
                 "platform": game.get("platform"),
-                "session_average": [
-                    {"date": date, "label": label, "avg_price": avg_price, "session": None}
+                "daily_average": [
+                    {"date": date, "label": label, "avg_price": avg_price}
                     for date, label, avg_price in trend_average_series(records, game["slug"], target_date)
                 ],
             }
@@ -247,13 +233,13 @@ def today_highlight_half_width(merchant_count: int) -> int:
     return 40 if merchant_count >= 6 else 46
 
 
-def generate_today_png(config: dict[str, Any], records: list[dict[str, Any]], target_date: str, output: Path, session: str | None = None) -> None:
+def generate_today_png(config: dict[str, Any], records: list[dict[str, Any]], target_date: str, output: Path) -> None:
     if not PIL_AVAILABLE:
         return
     games = [game for game in config.get("games", []) if game.get("enabled", True)]
-    latest = latest_records_for_date(records, target_date, session)
+    latest = latest_records_for_date(records, target_date)
     merchants = visible_merchants(config, latest)
-    subtitle = target_date if session is None else f"{target_date} {session_label(session)}"
+    subtitle = target_date
     image = Image.new("RGB", (1080, 1440), "#f7f8fb")
     draw = ImageDraw.Draw(image)
     png_text(draw, (54, 46), "Switch 卡带今日回收价", 38, bold=True)
@@ -300,11 +286,11 @@ def generate_today_png(config: dict[str, Any], records: list[dict[str, Any]], ta
     image.save(output)
 
 
-def generate_today_page(config: dict[str, Any], records: list[dict[str, Any]], target_date: str, output: Path, session: str | None = None) -> None:
+def generate_today_page(config: dict[str, Any], records: list[dict[str, Any]], target_date: str, output: Path) -> None:
     games = [game for game in config.get("games", []) if game.get("enabled", True)]
-    latest = latest_records_for_date(records, target_date, session)
+    latest = latest_records_for_date(records, target_date)
     merchants = visible_merchants(config, latest)
-    subtitle = target_date if session is None else f"{target_date} {session_label(session)}"
+    subtitle = target_date
     parts = [
         svg_text(54, 74, "Switch 卡带今日回收价", 38, 760),
         svg_text(54, 112, subtitle, 22, 500, "#64748b"),
@@ -527,10 +513,9 @@ def generate_trend_png(records: list[dict[str, Any]], games: list[dict[str, Any]
     image.save(output)
 
 
-def generate_report(config: dict[str, Any], target_date: str | None = None, session: str | None = None) -> list[Path]:
+def generate_report(config: dict[str, Any], target_date: str | None = None) -> list[Path]:
     if target_date is None:
         target_date = datetime.now().date().isoformat()
-    normalized_session = normalize_session(session)
     games = [game for game in config.get("games", []) if game.get("enabled", True)]
     records = load_price_records(
         configured_price_path(config),
@@ -539,11 +524,9 @@ def generate_report(config: dict[str, Any], target_date: str | None = None, sess
         date_to=target_date,
     )
     output_dir = report_dir(target_date, config)
-    if normalized_session:
-        output_dir = output_dir / normalized_session
     today_json = output_dir / "today_prices.json"
     trend_json = output_dir / "trend_series.json"
-    write_json(today_json, build_today_price_table(config, records, target_date, normalized_session))
+    write_json(today_json, build_today_price_table(config, records, target_date))
     write_json(trend_json, build_trend_series(config, records, target_date))
     today_chunks = [games[index : index + TODAY_TABLE_PAGE_SIZE] for index in range(0, len(games), TODAY_TABLE_PAGE_SIZE)] or [[]]
     outputs = [today_json, trend_json]
@@ -551,9 +534,9 @@ def generate_report(config: dict[str, Any], target_date: str | None = None, sess
         today_svg = output_dir / f"{chunk_index:02d}_today_prices.svg"
         page_config = {**config, "games": chunk}
         outputs.append(today_svg)
-        generate_today_page(page_config, records, target_date, today_svg, normalized_session)
+        generate_today_page(page_config, records, target_date, today_svg)
         today_png = output_dir / f"{chunk_index:02d}_today_prices.png"
-        generate_today_png(page_config, records, target_date, today_png, normalized_session)
+        generate_today_png(page_config, records, target_date, today_png)
         if today_png.exists():
             outputs.append(today_png)
     for idx in range(0, len(games), 6):

@@ -3,6 +3,7 @@ from nsg_price.search_ids import (
     build_search_matches,
     candidates_for_game,
     normalize_search_records,
+    request_search_payload,
     search_keywords_for_game,
 )
 
@@ -58,6 +59,27 @@ def test_normalize_buerjia_paginated_data_shape():
 
     assert rows[0]["item_id"] == "30"
     assert rows[0]["name"] == "NS1 星之卡比新星同盟"
+
+
+def test_request_search_payload_uses_tls_verification_default():
+    calls = []
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"data": {"goods": []}}
+
+    class FakeSession:
+        def post(self, *args, **kwargs):
+            calls.append(kwargs)
+            return FakeResponse()
+
+    payload = request_search_payload(FakeSession(), "hangzhouxizi", "zelda")
+
+    assert payload == {"data": {"goods": []}}
+    assert "verify" not in calls[0]
 
 
 def test_search_keywords_include_rules_and_custom_keyword():

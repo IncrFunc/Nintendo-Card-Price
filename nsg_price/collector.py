@@ -14,7 +14,6 @@ from .config import enabled_games
 from .constants import DEFAULT_XIZI_UUID
 from .parsers import PARSERS
 from .storage import append_prices, configured_price_path
-from .aggregation import session_for_time
 from .utils import compact_json, render_template
 
 LOGGER = logging.getLogger(__name__)
@@ -40,7 +39,6 @@ def make_error_record(
     game: dict[str, Any],
     error: str,
     fetched_at: str,
-    session: str,
     status: str = "error",
 ) -> dict[str, Any]:
     return {
@@ -55,7 +53,6 @@ def make_error_record(
         "currency": "CNY",
         "status": status,
         "fetched_at": fetched_at,
-        "session": session,
         "error": error,
     }
 
@@ -109,6 +106,44 @@ def normalize_headers(headers: dict[str, Any]) -> dict[str, str]:
     return normalized
 
 
+def hangzhouxizi_detail_bianma(detail: dict[str, Any], preferred_sku_id: str | None = None) -> str | None:
+    data = detail.get("data") if isinstance(detail.get("data"), dict) else {}
+    guige_groups = data.get("guige") if isinstance(data, dict) else None
+    if not isinstance(guige_groups, list):
+        return None
+    candidates: list[dict[str, Any]] = []
+    for group in guige_groups:
+        values = group.get("gg_value") if isinstance(group, dict) else None
+        if not isinstance(values, list):
+            continue
+        candidates.extend(value for value in values if isinstance(value, dict) and value.get("bianma"))
+    if not candidates:
+        return None
+    if preferred_sku_id:
+        preferred_sku = str(preferred_sku_id)
+        matched = next(
+            (
+                candidate
+                for candidate in candidates
+                if str(candidate.get("id") or "") == preferred_sku
+                or str(candidate.get("sku_id") or "") == preferred_sku
+                or str(candidate.get("bianma") or "") == preferred_sku
+            ),
+            None,
+        )
+        if matched is not None:
+            return str(matched.get("bianma"))
+    preferred = next(
+        (
+            candidate
+            for candidate in candidates
+            if "二手" in str(candidate.get("title") or "") and "盒" in str(candidate.get("title") or "")
+        ),
+        candidates[0],
+    )
+    return str(preferred.get("bianma"))
+
+
 def request_merchant_payload(merchant: dict[str, Any], endpoint: dict[str, Any], request_settings: dict[str, Any]) -> dict[str, Any]:
     parser_name = merchant.get("parser")
     if parser_name == "huoqiangshou" and merchant.get("apprize_endpoint"):
@@ -120,7 +155,10 @@ def request_merchant_payload(merchant: dict[str, Any], endpoint: dict[str, Any],
     if parser_name == "hangzhouxizi" and merchant.get("guige_endpoint"):
         context = endpoint.get("_context", {})
         detail = request_json(endpoint, request_settings)
-        guige = context.get("guige") or context.get("bianma")
+        guige = hangzhouxizi_detail_bianma(
+            detail,
+            preferred_sku_id=str(context.get("sku_id") or "") or None,
+        )
         if not guige:
             return detail
         guige_endpoint = render_template(merchant["guige_endpoint"], {**context, "guige": guige})
@@ -137,8 +175,6 @@ def collect(config: dict[str, Any], game_slug: str | None = None, dry_run: bool 
     merchants = config.get("merchants", {})
     records: list[dict[str, Any]] = []
     fetched_at = datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
-    session = session_for_time(fetched_at)
-
     for game in enabled_games(config, game_slug):
         merchant_ids = game.get("merchant_ids", {})
         for merchant_key, merchant in merchants.items():
@@ -158,7 +194,6 @@ def collect(config: dict[str, Any], game_slug: str | None = None, dry_run: bool 
                         game=game,
                         error=message,
                         fetched_at=fetched_at,
-                        session=session,
                         status="skipped",
                     )
                 )
@@ -175,7 +210,6 @@ def collect(config: dict[str, Any], game_slug: str | None = None, dry_run: bool 
                         game=game,
                         error=message,
                         fetched_at=fetched_at,
-                        session=session,
                         status="skipped",
                     )
                 )
@@ -184,8 +218,6 @@ def collect(config: dict[str, Any], game_slug: str | None = None, dry_run: bool 
             context = {**ids, "game_id": game_id}
             if merchant_key == "hangzhouxizi" and not context.get("uuid"):
                 context["uuid"] = default_xizi_uuid
-            if merchant_key == "hangzhouxizi" and not context.get("guige") and context.get("bianma"):
-                context["guige"] = context["bianma"]
             endpoint = render_template(merchant.get("endpoint", {}), context)
             endpoint["_context"] = context
             parser_name = merchant.get("parser", merchant_key)
@@ -198,7 +230,6 @@ def collect(config: dict[str, Any], game_slug: str | None = None, dry_run: bool 
                         game=game,
                         error=f"unknown parser: {parser_name}",
                         fetched_at=fetched_at,
-                        session=session,
                     )
                 )
                 continue
@@ -211,7 +242,6 @@ def collect(config: dict[str, Any], game_slug: str | None = None, dry_run: bool 
                         game=game,
                         error="dry-run ready; remote API not called",
                         fetched_at=fetched_at,
-                        session=session,
                         status="ready",
                     )
                 )
@@ -232,7 +262,6 @@ def collect(config: dict[str, Any], game_slug: str | None = None, dry_run: bool 
                     "currency": parsed.currency,
                     "status": parsed.status,
                     "fetched_at": fetched_at,
-                    "session": session,
                     "parser_note": parsed.parser_note,
                 }
                 if request_settings.get("save_raw_response", False):
@@ -247,7 +276,6 @@ def collect(config: dict[str, Any], game_slug: str | None = None, dry_run: bool 
                         game=game,
                         error=str(exc),
                         fetched_at=fetched_at,
-                        session=session,
                     )
                 )
 

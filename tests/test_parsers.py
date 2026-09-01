@@ -139,6 +139,58 @@ def test_hangzhouxizi_uses_guige_other_shop_recycle_price():
     assert parsed.parser_note == "recycle_price=guige.data.price.hs_price_2"
 
 
+def test_hangzhouxizi_uses_hs_price_1_when_hs_price_2_missing():
+    parsed = PARSERS["hangzhouxizi"](
+        {
+            "detail": {
+                "code": 1,
+                "data": {
+                    "goods": {
+                        "id": 50,
+                        "title": "NS Zelda",
+                        "price": 223,
+                    }
+                },
+            },
+            "guige": {
+                "code": 1,
+                "data": {
+                    "price": {
+                        "price": 223,
+                        "hs_price_1": 203,
+                    }
+                },
+            },
+        }
+    )
+
+    assert parsed.recycle_price == 203.0
+    assert parsed.sell_price == 223.0
+    assert parsed.parser_note == "recycle_price=guige.data.price.hs_price_1"
+
+
+def test_hangzhouxizi_falls_back_to_goods_price_when_guige_recycle_price_missing():
+    parsed = PARSERS["hangzhouxizi"](
+        {
+            "detail": {
+                "code": 1,
+                "data": {
+                    "goods": {
+                        "id": 50,
+                        "title": "NS Zelda",
+                        "price": 223,
+                    }
+                },
+            },
+            "guige": {"code": 1, "data": {"price": {}}},
+        }
+    )
+
+    assert parsed.recycle_price == 223.0
+    assert parsed.sell_price == 223.0
+    assert parsed.parser_note == "recycle_price=detail.data.goods.price fallback"
+
+
 def test_hangzhouxizi_marks_removed_goods_as_unavailable():
     parsed = PARSERS["hangzhouxizi"]({"code": 0, "msg": "商品已下架", "data": None})
 
@@ -219,7 +271,7 @@ def test_hangzhouxizi_parser_skips_invalid_token():
     parsed = PARSERS["hangzhouxizi"]({"code": 99999, "message": "token invalid", "data": None})
     assert parsed.status == "skipped"
     assert parsed.recycle_price is None
-    assert parsed.parser_note == "hangzhouxizi token invalid; refresh XIZI_RECYCLEXCX"
+    assert parsed.parser_note == "hangzhouxizi endpoint rejected the request token"
 
 
 def test_laolieren_parser_matches_demo_formula():

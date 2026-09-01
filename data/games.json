@@ -17,8 +17,7 @@
       "hangzhouxizi": {
         "game_id": "50",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-        "sku_id": "786",
-        "bianma": "16941779810957016627"
+        "sku_id": "786"
       },
       "baibiandui": {
         "game_id": "2c9089409790b5ca01979111fe410047"
@@ -49,8 +48,7 @@
       "hangzhouxizi": {
         "game_id": "13",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-        "sku_id": "822",
-        "bianma": "16982019813488386973"
+        "sku_id": "822"
       },
       "baibiandui": {
         "game_id": "2c9089409790b5ca0197911a10890065"
@@ -82,7 +80,6 @@
       "hangzhouxizi": {
         "game_id": "50",
         "sku_id": "787",
-        "bianma": "16941779810958560938",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b"
       },
       "baibiandui": {
@@ -114,8 +111,7 @@
       "hangzhouxizi": {
         "game_id": "748",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-        "sku_id": "897",
-        "bianma": "17274261287172620853"
+        "sku_id": "897"
       },
       "baibiandui": {
         "game_id": "2c9089409790b5ca01979358ba150393"
@@ -146,8 +142,7 @@
       "hangzhouxizi": {
         "game_id": "763",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-        "sku_id": "914",
-        "bianma": "17351376376904926418"
+        "sku_id": "914"
       },
       "baibiandui": {
         "game_id": "2c9089409795d4a60197972ab35e044f"
@@ -178,8 +173,7 @@
       "hangzhouxizi": {
         "game_id": "753",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-        "sku_id": "902",
-        "bianma": "17292380413521269600"
+        "sku_id": "902"
       },
       "baibiandui": {
         "game_id": "2c9089409790b5ca019791235a32008d"
@@ -210,8 +204,7 @@
       "hangzhouxizi": {
         "game_id": "158",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-        "sku_id": "221",
-        "bianma": "16909790098006961334"
+        "sku_id": "221"
       },
       "baibiandui": {
         "game_id": "2c9089409790b5ca0197939663310525"
@@ -243,8 +236,7 @@
       "hangzhouxizi": {
         "game_id": "51",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-        "sku_id": "778",
-        "bianma": "16935381613074396499"
+        "sku_id": "778"
       },
       "baibiandui": {
         "game_id": "2c9089409790b5ca0197912158bb0080"
@@ -275,8 +267,7 @@
       "hangzhouxizi": {
         "game_id": "697",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-        "sku_id": "818",
-        "bianma": "16978547915497121979"
+        "sku_id": "818"
       },
       "baibiandui": {
         "game_id": "2c9089409795d4a6019796ad321c0146"
@@ -307,8 +298,7 @@
       "hangzhouxizi": {
         "game_id": "107",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-        "sku_id": "148",
-        "bianma": "16909623136862171162"
+        "sku_id": "148"
       },
       "baibiandui": {
         "game_id": "2c9089409790b5ca0197935e289503ad"
@@ -339,8 +329,7 @@
       "hangzhouxizi": {
         "game_id": "883",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-        "sku_id": "1056",
-        "bianma": "17767700723403586536"
+        "sku_id": "1056"
       },
       "baibiandui": {
         "game_id": "2c90894098c062e4019981d3e2267dd3"
@@ -371,8 +360,7 @@
       "hangzhouxizi": {
         "game_id": "61",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-        "sku_id": "845",
-        "bianma": "17053898208455731606"
+        "sku_id": "845"
       },
       "baibiandui": {
         "game_id": "2c9089409790b5ca01979166680f012b"
@@ -403,8 +391,7 @@
       "hangzhouxizi": {
         "game_id": "71",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-        "sku_id": "106",
-        "bianma": "16909546699834829817"
+        "sku_id": "106"
       },
       "baibiandui": {
         "game_id": "2c9089409790b5ca0197910b03fa001c"
@@ -435,8 +422,7 @@
       "hangzhouxizi": {
         "game_id": "841",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-        "sku_id": "1003",
-        "bianma": "17606892413222604423"
+        "sku_id": "1003"
       },
       "baibiandui": {
         "game_id": "2c9089409995f23c0199c8f60f6d3094"
@@ -467,8 +453,7 @@
       "hangzhouxizi": {
         "game_id": "108",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-        "sku_id": "149",
-        "bianma": "16909624756941543047"
+        "sku_id": "149"
       },
       "baibiandui": {
         "game_id": "2c9089409795d4a6019796e0a32a026b"
@@ -499,8 +484,7 @@
       "hangzhouxizi": {
         "game_id": "31",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-        "sku_id": "55",
-        "bianma": "16909447274085811805"
+        "sku_id": "55"
       },
       "baibiandui": {
         "game_id": "2c9089409790b5ca0197911ede360073"
@@ -531,8 +515,7 @@
       "hangzhouxizi": {
         "game_id": "737",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-        "sku_id": "884",
-        "bianma": "17173297896569343949"
+        "sku_id": "884"
       },
       "baibiandui": {
         "game_id": "2c9089409795d4a6019797214a2b040c"
@@ -563,8 +546,7 @@
       "hangzhouxizi": {
         "game_id": "876",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-        "sku_id": "1049",
-        "bianma": "17764887464337769094"
+        "sku_id": "1049"
       },
       "baibiandui": {
         "game_id": "2c9089409d4906a9019ddf7ccda7438a"
@@ -595,8 +577,7 @@
       "hangzhouxizi": {
         "game_id": "510",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-        "sku_id": "610",
-        "bianma": "16911699068003555665"
+        "sku_id": "610"
       },
       "baibiandui": {
         "game_id": "2c9089409795d4a6019796ff02c50353"
@@ -658,8 +639,7 @@
       "hangzhouxizi": {
         "game_id": "299",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-        "sku_id": "383",
-        "bianma": "16910615477819014205"
+        "sku_id": "383"
       },
       "baibiandui": {
         "game_id": "2c9089409790b5ca019793908d4d04f0"
@@ -690,8 +670,7 @@
       "hangzhouxizi": {
         "game_id": "297",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-        "sku_id": "381",
-        "bianma": "16910613092348799428"
+        "sku_id": "381"
       },
       "baibiandui": {
         "game_id": "2c9089409790b5ca01979391863704fd"
@@ -722,8 +701,7 @@
       "hangzhouxizi": {
         "game_id": "102",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-        "sku_id": "143",
-        "bianma": "16909611802212053786"
+        "sku_id": "143"
       },
       "baibiandui": {
         "game_id": "2c9089409790b5ca019793929ed0050a"
@@ -733,6 +711,65 @@
       },
       "buerjia": {
         "game_id": "60"
+      }
+    }
+  },
+  {
+    "slug": "overcooked-all",
+    "name": "胡闹厨房 全都好吃",
+    "platform": "Nintendo Switch",
+    "enabled": true,
+    "merchant_ids": {
+      "laolieren": {
+        "game_id": "2806"
+      },
+      "huoqiangshou": {
+        "game_id": "1769"
+      },
+      "hailuo": {
+        "game_id": "1036"
+      },
+      "hangzhouxizi": {
+        "game_id": "251",
+        "uuid": "6c99e77fba4f44f9ac46b767fd079f0b"
+      },
+      "baibiandui": {
+        "game_id": "2c9089409790b5ca019793a76590056c"
+      },
+      "mogushijian": {
+        "game_id": "1483"
+      },
+      "buerjia": {
+        "game_id": "66"
+      }
+    }
+  },
+  {
+    "slug": "nzcp123",
+    "name": "逆转裁判123",
+    "platform": "Nintendo Switch",
+    "enabled": true,
+    "merchant_ids": {
+      "laolieren": {
+        "game_id": "400"
+      },
+      "huoqiangshou": {
+        "game_id": "1310"
+      },
+      "hailuo": {
+        "game_id": "1056"
+      },
+      "hangzhouxizi": {
+        "game_id": "516"
+      },
+      "baibiandui": {
+        "game_id": "2c9089409795d4a601979748bb790513"
+      },
+      "mogushijian": {
+        "game_id": "2049"
+      },
+      "buerjia": {
+        "game_id": "69"
       }
     }
   },
@@ -754,8 +791,7 @@
       "hangzhouxizi": {
         "game_id": "813",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-        "sku_id": "974",
-        "bianma": "17532552401141792561"
+        "sku_id": "974"
       },
       "baibiandui": {
         "game_id": "2c90894097ac62410197af7d060c0073"
@@ -786,8 +822,7 @@
       "hangzhouxizi": {
         "game_id": "795",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-        "sku_id": "956",
-        "bianma": "17492716332787712587"
+        "sku_id": "956"
       },
       "baibiandui": {
         "game_id": "2c90894097ac62410197af79fc890066"
@@ -818,8 +853,7 @@
       "hangzhouxizi": {
         "game_id": "796",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-        "sku_id": "957",
-        "bianma": "17492717383342459840"
+        "sku_id": "957"
       },
       "baibiandui": {
         "game_id": "2c90894097ac62410197af77d1810059"
@@ -850,8 +884,7 @@
       "hangzhouxizi": {
         "game_id": "812",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-        "sku_id": "973",
-        "bianma": "17530019834158328566"
+        "sku_id": "973"
       },
       "baibiandui": {
         "game_id": "2c90894097ac62410197af7f27b10080"
@@ -882,8 +915,7 @@
       "hangzhouxizi": {
         "game_id": "797",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-        "sku_id": "958",
-        "bianma": "17492718176054252229"
+        "sku_id": "958"
       },
       "baibiandui": {
         "game_id": "2c90894097ac62410197af84b8d0009a"
@@ -912,10 +944,9 @@
         "game_id": "1648"
       },
       "hangzhouxizi": {
-        "game_id": "10",
+        "game_id": "798",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-        "sku_id": "32",
-        "bianma": "16907643359731972961"
+        "sku_id": "32"
       },
       "baibiandui": {
         "game_id": "2c90894097ac62410197af966d5d00cc"
@@ -946,8 +977,7 @@
       "hangzhouxizi": {
         "game_id": "826",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-        "sku_id": "988",
-        "bianma": "17565635174792268014"
+        "sku_id": "988"
       },
       "baibiandui": {
         "game_id": "2c90894097ac62410197af82525a008d"
@@ -978,8 +1008,7 @@
       "hangzhouxizi": {
         "game_id": "865",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-        "sku_id": "1033",
-        "bianma": "17736475249877490266"
+        "sku_id": "1033"
       },
       "baibiandui": {
         "game_id": "2c9089409c9db4bb019cbe2ca7d22c9f"
@@ -1010,8 +1039,7 @@
       "hangzhouxizi": {
         "game_id": "844",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-        "sku_id": "1008",
-        "bianma": "17625280291674215767"
+        "sku_id": "1008"
       },
       "baibiandui": {
         "game_id": "2c9089409a235068019a6dd9a2ab40eb"
@@ -1042,8 +1070,7 @@
       "hangzhouxizi": {
         "game_id": "849",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-        "sku_id": "1013",
-        "bianma": "17640653911899685362"
+        "sku_id": "1013"
       },
       "baibiandui": {
         "game_id": "2c9089409c9db4bb019caee08afc1467"
@@ -1069,13 +1096,12 @@
         "game_id": "3551"
       },
       "hailuo": {
-        "game_id": "41968"
+        "game_id": "2157"
       },
       "hangzhouxizi": {
         "game_id": "861",
         "uuid": "6c99e77fba4f44f9ac46b767fd079f0b",
-        "sku_id": "1029",
-        "bianma": "17695027369045269491"
+        "sku_id": "1029"
       },
       "baibiandui": {
         "game_id": "2c9089409c9db4bb019cbe2eabed2cac"
@@ -1115,6 +1141,36 @@
       },
       "buerjia": {
         "game_id": ""
+      }
+    }
+  },
+  {
+    "slug": "yaoxitujian",
+    "name": "NS2 耀西图鉴",
+    "platform": "Nintendo Switch 2",
+    "enabled": true,
+    "merchant_ids": {
+      "laolieren": {
+        "game_id": "3750"
+      },
+      "huoqiangshou": {
+        "game_id": "3602"
+      },
+      "hailuo": {
+        "game_id": "2316"
+      },
+      "hangzhouxizi": {
+        "game_id": "895",
+        "uuid": "6c99e77fba4f44f9ac46b767fd079f0b"
+      },
+      "baibiandui": {
+        "game_id": "2c9089409e4e6b3a019e6001539a1874"
+      },
+      "mogushijian": {
+        "game_id": "2887"
+      },
+      "buerjia": {
+        "game_id": "1102"
       }
     }
   }

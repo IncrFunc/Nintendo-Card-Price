@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import os
 import re
-from copy import deepcopy
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
@@ -95,7 +94,3 @@ def as_money(value: Any) -> float | None:
     except (InvalidOperation, ValueError):
         return None
     return float(amount)
-
-
-def clone(data: Any) -> Any:
-    return deepcopy(data)

@@ -1,8 +1,8 @@
-# Linux deployment
+# Linux 部署
 
-This keeps the Windows scripts intact and adds a Linux-friendly path for servers or a desktop Linux box.
+Linux 部署用于服务器或桌面 Linux 环境。每日发布通过 Android 手机和 ADB 完成。
 
-## Setup
+## 安装
 
 ```bash
 cd /opt/Nintendo_Game_Price
@@ -13,65 +13,63 @@ cp config.example.json config.json
 cp .env.example .env
 ```
 
-Edit `.env`, `config.json`, and `data/games.json` as usual. Connect an Android phone with USB debugging enabled, keep Xiaohongshu logged in, and verify it:
+按需编辑 `.env`、`config.json` 和 `data/games.json`。连接已开启 USB 调试的 Android 手机，保持小红书登录，然后检查设备：
 
 ```bash
 python main.py xhs-adb-doctor
 ```
 
-## Run once
+如果 `adb` 不在 `PATH` 中，显式传入路径：
+
+```bash
+python main.py xhs-adb-doctor --adb-path /opt/android-sdk/platform-tools/adb
+```
+
+## 单次采集
 
 ```bash
 ./scripts/run_fetch.sh
 ```
 
-Dry run:
+只做 dry run：
 
 ```bash
 DRY_RUN=1 ./scripts/run_fetch.sh
 ```
 
-## Run the daily loop with UI
+## 启动每日循环和 UI
 
 ```bash
 ./scripts/run_auto_linux.sh
 ```
 
-The default loop collects at `11:50` and publishes once at a random minute from `12:00-12:10` through Android ADB.
+默认循环会在 `11:50` 采集，并在 `12:00-12:10` 之间随机一分钟通过 Android ADB 发布。
 
-Useful environment overrides:
+常用环境变量：
 
 ```bash
 UI_HOST=0.0.0.0 UI_PORT=8765 ./scripts/run_auto_linux.sh
-ADB_DEVICE=2527b8b ./scripts/run_auto_linux.sh
+ADB_DEVICE=ANDROID_SERIAL ./scripts/run_auto_linux.sh
 ADB_PATH=/opt/android-sdk/platform-tools/adb ./scripts/run_auto_linux.sh
+ADB_OUTPUT_DIR=/var/tmp/nintendo-game-price-adb ./scripts/run_auto_linux.sh
 ```
 
-## Browser fallback on Linux
-
-The old browser publisher is still available if you set `PUBLISH_DRIVER=browser`. It needs a real browser with remote debugging on port `9223`.
-
-`python main.py xhs-edge` tries these Linux browser commands automatically:
-
-- `microsoft-edge`
-- `microsoft-edge-stable`
-- `google-chrome`
-- `google-chrome-stable`
-- `chromium`
-- `chromium-browser`
-
-If your browser is elsewhere:
+## 手动发布测试
 
 ```bash
-python main.py xhs-edge --edge-path /path/to/browser
-PUBLISH_DRIVER=browser LAUNCH_EDGE=1 ./scripts/run_auto_linux.sh
+python main.py publish-pack
+python main.py xhs-adb-publish
 ```
 
-On a headless server, run this inside a desktop session, VNC session, or `xvfb-run` if the browser build supports it. Log in to Xiaohongshu once in the opened browser profile.
+正式发布：
 
-## systemd example
+```bash
+python main.py xhs-adb-publish --publish
+```
 
-Copy and edit the example service:
+## systemd 示例
+
+复制并按实际路径编辑示例服务：
 
 ```bash
 sudo cp scripts/systemd/nintendo-game-price.service.example /etc/systemd/system/nintendo-game-price.service
@@ -79,10 +77,10 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now nintendo-game-price
 ```
 
-Check logs:
+查看日志：
 
 ```bash
 journalctl -u nintendo-game-price -f
 ```
 
-The service example assumes the project lives in `/opt/Nintendo_Game_Price`. Change `WorkingDirectory`, `ExecStart`, and optional `ADB_DEVICE` / `ADB_PATH` environment values if you deploy somewhere else.
+示例服务默认项目目录为 `/opt/Nintendo_Game_Price`。如果部署到其他目录，请修改 `WorkingDirectory`、`ExecStart`，以及可选的 `ADB_DEVICE` / `ADB_PATH` 环境变量。

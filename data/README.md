@@ -1,28 +1,17 @@
-# data 目录说明
+# data 目录
 
-这个目录只保留当前主流程会用到的运行数据。
+## 版本库数据
 
-## 核心真实数据
+- `games.json`：维护中的游戏、启用状态和商家商品 ID。
+- `games.example.json`：公开示例游戏清单，供 `config.example.json` 使用。
 
-- `prices.db`：当前原始采集价格数据库，SQLite 格式。
-- `prices.json`：旧版价格文件；迁移后只保留占位信息，仍可作为兼容迁移来源。
-- `prices/YYYY-MM-DD.jsonl`：旧版按日期拆分价格文件；仍可导入数据库，之后不再作为主写入目标。
-- `games.json`：当前维护的游戏清单，包含启停状态和各回收商 `game_id`。
-- `games.example.json`：示例游戏清单，配合 `config.example.json` 使用。
+## 本地运行数据
 
-## 可再生成内容
-
-- `reports/<date>/`：按日期生成的报表源文件和图片。
-- `publish/<date>/`：按发布顺序整理好的文案和 manifest。
+- `prices.db`：SQLite 价格数据库，是价格记录的唯一存储。
+- `reports/<date>/`：每日价格 JSON、SVG 和 PNG。
+- `publish/<date>/`：图片顺序清单和发布文案。
+- `exports/`：手动导出的 CSV。
 - `charts/`：单游戏 HTML 趋势图。
+- `runtime/`：接口诊断、商品 ID 搜索结果和 ADB 截图。
 
-## 诊断与辅助文件
-
-- `runtime/doctor_report.json`：最近一次自检结果。
-- `runtime/api_test_results.json`：最近一次真实接口测试结果。
-- `runtime/search_id_matches.csv` / `runtime/search_id_matches.json`：直接搜索商家接口得到的候选结果，便于人工复核。
-
-可删除但会自动再生成的内容：`reports/`、`publish/`、`charts/`、`runtime/`。
-
-不要手动改 `prices.db`，除非是在修正明确的错误采集记录。旧 `prices.json` / `prices/*.jsonl` 只用于兼容迁移。
-新配置优先使用 `settings.storage.prices_path`；旧配置里的 `prices_json` 仍保留兼容。
+本地运行数据均由 `.gitignore` 排除，可以按需清理并重新生成。价格数据库承载历史数据，生产环境应单独备份。

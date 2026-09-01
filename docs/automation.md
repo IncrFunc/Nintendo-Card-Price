@@ -1,83 +1,78 @@
-# Daily automation
+# 每日自动化
 
-This project can run the whole daily flow with one long-running Python command:
+本项目可以用一个长期运行的 Python 命令完成每日流程：
 
-- `11:50` collect cartridge prices and build `data/publish/<today>/am/`.
-- One random minute from `12:00-12:10` publishes that pack to Xiaohongshu through an Android phone over ADB.
+- 采集卡带回收价。
+- 生成报表图片和小红书发布包。
+- 通过 Android 手机和 ADB 发布到小红书。
+- 按需启动本地网页管理 UI。
 
-## First-time Android setup
+## 首次配置 Android 手机
 
-Install dependencies:
+安装依赖：
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Connect the phone with USB debugging enabled, keep Xiaohongshu logged in, and check readiness:
+连接已开启 USB 调试的 Android 手机，并确保手机上的小红书已登录。然后检查设备状态：
 
 ```bash
 python main.py xhs-adb-doctor
 ```
 
-If more than one device is connected, pass the serial shown by `adb devices`:
+如果连接了多台设备，使用 `adb devices` 看到的序列号指定设备：
 
 ```bash
-python main.py xhs-adb-doctor --device 2527b8b
+python main.py xhs-adb-doctor --device ANDROID_SERIAL
 ```
 
-## Run the daily automation loop
+## 启动每日自动化
 
-One command starts daily collection, the random publish window, and the local management UI:
+一个命令即可启动每日采集、随机发布窗口和本地管理 UI：
 
 ```bash
 python main.py auto --ui
 ```
 
-The current defaults are equivalent to:
+当前默认配置等价于：
 
 ```bash
-python main.py auto --ui --fetch-time 11:50 --publish-time 12:00-12:10 --publish-driver adb
+python main.py auto --ui --fetch-time 11:50 --publish-time 12:00-12:10
 ```
 
-The process must stay running. If it is closed, scheduled jobs will not run.
+进程需要一直运行。进程关闭后，定时任务不会继续执行。
 
-## Manual test commands
+## 手动测试命令
 
-Run the fetch and publish-pack step immediately:
+立即执行采集并生成发布包：
 
 ```bash
-python main.py auto-fetch --session am
+python main.py auto-fetch
 ```
 
-Fill and publish today's pack on Android immediately:
+立即通过 Android 发布当天发布包：
 
 ```bash
-python main.py auto-publish --driver adb --session am
+python main.py auto-publish
 ```
 
-Fill the Android Xiaohongshu post without clicking publish:
+只在 Android 小红书里填写内容，不点击最终发布按钮：
 
 ```bash
-python main.py xhs-adb-publish --session am
+python main.py xhs-adb-publish
 ```
 
-Fill and click publish:
+填写并点击发布：
 
 ```bash
-python main.py xhs-adb-publish --session am --publish
+python main.py xhs-adb-publish --publish
 ```
 
-## Browser fallback
+## 注意事项
 
-The old browser-based publisher is still available:
-
-```bash
-python main.py xhs-edge
-python main.py auto --ui --publish-driver browser --launch-edge
-```
-
-## Notes
-
-- The automation picks one random publish minute inside each publish window every day.
-- The noon publish uses the latest fetch session from the same day, so the `12:00-12:10` window publishes the `11:50` `am` pack.
-- Android screenshots are written under `data/runtime/adb-xhs/` by default.
+- 每天会在发布窗口内随机选择一个分钟执行发布。
+- 进程启动或恢复后会补做当天已经到期的任务。
+- 发布会等待当天已到期的采集任务成功完成。
+- ADB 截图默认写入 `data/runtime/adb-xhs/`。
+- 发布过程中保持手机亮屏并解锁。

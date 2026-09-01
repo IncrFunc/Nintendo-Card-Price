@@ -103,26 +103,6 @@ def hailuo_headers(authorization: str | None = None) -> dict[str, str]:
     return headers
 
 
-def hangzhouxizi_headers(recyclexcx: str | None = None) -> dict[str, str]:
-    token = recyclexcx or os.getenv("XIZI_RECYCLEXCX") or ""
-    headers = {
-        "user-agent": MINI_HEADERS["user-agent"],
-        "xweb_xhr": "1",
-        "content-type": "application/json",
-        "accept": "*/*",
-        "sec-fetch-site": "cross-site",
-        "sec-fetch-mode": "cors",
-        "sec-fetch-dest": "empty",
-        "referer": os.getenv("XIZI_REFERER") or "https://servicewechat.com/wxdf78c51363de71d4/4/page-frame.html",
-        "accept-encoding": "gzip, deflate, br",
-        "accept-language": "zh-CN,zh;q=0.9",
-        "priority": "u=1, i",
-    }
-    if token:
-        headers["recyclexcx"] = token
-    return headers
-
-
 def simple_mini_headers(referer: str) -> dict[str, str]:
     return {
         "user-agent": MINI_HEADERS["user-agent"],
@@ -488,7 +468,6 @@ def request_search_payload(
                 "filter": {"platform": "", "keyword": keyword, "listorder": "", "favorite": "", "genres": "", "preset": ""},
             },
             timeout=timeout,
-            verify=False,
         )
     elif merchant == "huoqiangshou":
         body = {
@@ -513,7 +492,6 @@ def request_search_payload(
             headers=huoqiangshou_headers(),
             data=body,
             timeout=timeout,
-            verify=False,
         )
     elif merchant == "baibiandui":
         response = session.post(
@@ -521,7 +499,6 @@ def request_search_payload(
             headers=baibiandui_headers(),
             json={"page": page, "limit": page_size, "title": keyword, "parentId": ""},
             timeout=timeout,
-            verify=False,
         )
     elif merchant == "hailuo":
         response = session.get(
@@ -542,7 +519,6 @@ def request_search_payload(
                 "productId": "",
             },
             timeout=timeout,
-            verify=False,
         )
     elif merchant == "hangzhouxizi":
         response = session.post(
@@ -550,7 +526,6 @@ def request_search_payload(
             headers=simple_mini_headers("https://xcx.hzxzdwsc.com"),
             json={"name": keyword, "keyword": keyword, "page": page, "pageNum": page, "pageSize": page_size},
             timeout=timeout,
-            verify=False,
         )
     elif merchant == "mogushijian":
         response = session.post(
@@ -558,7 +533,6 @@ def request_search_payload(
             headers=mogushijian_headers(),
             json={"name": keyword, "page": page, "type": 2},
             timeout=timeout,
-            verify=False,
         )
     elif merchant == "buerjia":
         response = session.post(
@@ -566,7 +540,6 @@ def request_search_payload(
             headers=simple_mini_headers("https://bejdw.crystal-cloud.top/api/"),
             json={"search": keyword, "page": page, "pageNum": page, "pageSize": page_size, "limit": page_size},
             timeout=timeout,
-            verify=False,
         )
     else:
         raise ValueError(f"unsupported merchant: {merchant}")

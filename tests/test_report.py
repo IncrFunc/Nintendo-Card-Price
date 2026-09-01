@@ -2,13 +2,14 @@ import json
 from datetime import date, timedelta
 
 from nsg_price.report import PIL_AVAILABLE, build_today_price_table, generate_report, lttb_downsample, today_column_centers, today_highlight_half_width, trend_average_series
+from nsg_price.storage import append_prices
 
 
 def test_generate_report_svg_pages(tmp_path, monkeypatch):
-    prices_path = tmp_path / "prices.json"
-    prices_path.write_text(
-        json.dumps(
-            [
+    prices_path = tmp_path / "prices.db"
+    append_prices(
+        prices_path,
+        [
                 {
                     "merchant": "laolieren",
                     "merchant_name": "老猎人",
@@ -18,14 +19,11 @@ def test_generate_report_svg_pages(tmp_path, monkeypatch):
                     "status": "ok",
                     "fetched_at": "2026-06-05T10:00:00+08:00",
                 }
-            ],
-            ensure_ascii=False,
-        ),
-        encoding="utf-8",
+        ],
     )
     monkeypatch.chdir(tmp_path)
     config = {
-        "settings": {"storage": {"prices_json": str(prices_path)}},
+        "settings": {"storage": {"prices_path": str(prices_path)}},
         "merchants": {"laolieren": {"name": "老猎人"}, "huoqiangshou": {"name": "火枪手"}},
         "games": [
             {"slug": "zelda-breath-of-the-wild", "name": "塞尔达传说 旷野之息", "enabled": True},
@@ -87,7 +85,7 @@ def test_today_columns_spread_visible_merchants_evenly():
     assert today_highlight_half_width(6) == 40
 
 
-def test_today_table_can_filter_by_session():
+def test_today_table_uses_latest_record_for_the_day():
     config = {
         "merchants": {"laolieren": {"name": "老猎人"}},
         "games": [{"slug": "zelda", "name": "塞尔达", "enabled": True}],
@@ -97,11 +95,9 @@ def test_today_table_can_filter_by_session():
         {"merchant": "laolieren", "game_slug": "zelda", "status": "ok", "recycle_price": 230, "fetched_at": "2026-06-06T15:55:00+08:00", "session": "pm"},
     ]
 
-    morning = build_today_price_table(config, records, "2026-06-06", session="am")[0]
-    afternoon = build_today_price_table(config, records, "2026-06-06", session="pm")[0]
+    row = build_today_price_table(config, records, "2026-06-06")[0]
 
-    assert morning["prices"][0]["recycle_price"] == 200
-    assert afternoon["prices"][0]["recycle_price"] == 230
+    assert row["prices"][0]["recycle_price"] == 230
 
 
 def test_today_table_hides_merchant_when_current_run_all_failed():
@@ -117,21 +113,20 @@ def test_today_table_hides_merchant_when_current_run_all_failed():
         {"merchant": "huoqiangshou", "game_slug": "zelda", "status": "error", "recycle_price": None, "fetched_at": "2026-06-06T09:55:00+08:00", "session": "am"},
     ]
 
-    row = build_today_price_table(config, records, "2026-06-06", session="am")[0]
+    row = build_today_price_table(config, records, "2026-06-06")[0]
 
     assert [price["merchant"] for price in row["prices"]] == ["laolieren"]
 
 
 def test_today_report_does_not_drop_games_after_26(tmp_path, monkeypatch):
-    prices_path = tmp_path / "prices.json"
-    prices_path.write_text("[]", encoding="utf-8")
+    prices_path = tmp_path / "prices.db"
     monkeypatch.chdir(tmp_path)
     games = [
         {"slug": f"game-{index:02d}", "name": f"测试卡带{index:02d}", "enabled": True}
         for index in range(1, 31)
     ]
     config = {
-        "settings": {"storage": {"prices_json": str(prices_path)}},
+        "settings": {"storage": {"prices_path": str(prices_path)}},
         "merchants": {"laolieren": {"name": "老猎人"}},
         "games": games,
     }
@@ -156,7 +151,7 @@ def test_today_report_does_not_drop_games_after_26(tmp_path, monkeypatch):
 
 
 def test_trend_chart_uses_axis_price_labels_and_downsampling(tmp_path, monkeypatch):
-    prices_path = tmp_path / "prices.json"
+    prices_path = tmp_path / "prices.db"
     records = []
     start = date(2025, 5, 12)
     for index in range(400):
@@ -174,10 +169,10 @@ def test_trend_chart_uses_axis_price_labels_and_downsampling(tmp_path, monkeypat
                     "fetched_at": f"{day.isoformat()}T{hour:02d}:55:00+08:00",
                 }
             )
-    prices_path.write_text(json.dumps(records, ensure_ascii=False), encoding="utf-8")
+    append_prices(prices_path, records)
     monkeypatch.chdir(tmp_path)
     config = {
-        "settings": {"storage": {"prices_json": str(prices_path)}},
+        "settings": {"storage": {"prices_path": str(prices_path)}},
         "merchants": {"laolieren": {"name": "老猎人"}},
         "games": [{"slug": "zelda", "name": "塞尔达", "enabled": True}],
     }

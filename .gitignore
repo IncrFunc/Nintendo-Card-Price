@@ -5,12 +5,13 @@ __pycache__/
 .pytest_cache/
 .pytest_tmp/
 .pytest_tmp*/
+pytest_tmp*/
 logs/
 *.pyc
 data/prices.json
 data/prices.db
 data/prices/
-data/prices.json.*.bak
+data/*.bak
 data/reports/
 data/publish/
 data/runtime/

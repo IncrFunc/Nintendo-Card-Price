@@ -10,10 +10,11 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
+from xml.etree import ElementTree as ET
 from typing import Any, Callable, Iterable
 
 from .paths import runtime_root
-from .xiaohongshu import caption_parts, publish_pack_files, split_body_and_tags
+from .xiaohongshu import body_text_before_tags, caption_parts, publish_pack_files, split_body_and_tags
 
 
 XHS_PACKAGE = "com.xingin.xhs"
@@ -60,6 +61,28 @@ class AdbPublishResult:
     title: str
     image_count: int
     remote_dir: str
+    remote_deleted: bool
+    screenshot: Path
+    message: str
+
+
+@dataclass(frozen=True)
+class AdbImagePushResult:
+    status: str
+    serial: str
+    image_count: int
+    remote_dir: str
+    remote_files: list[str]
+
+
+@dataclass(frozen=True)
+class AdbReplaceImagesResult:
+    status: str
+    serial: str
+    image_count: int
+    old_image_count: int
+    remote_dir: str
+    remote_deleted: bool
     screenshot: Path
     message: str
 
@@ -67,6 +90,20 @@ class AdbPublishResult:
 @dataclass(frozen=True)
 class Xiaomi8TapProfile:
     create: tuple[float, float] = (0.50, 0.94)
+    profile_tab: tuple[float, float] = (0.91, 0.94)
+    first_profile_note: tuple[float, float] = (0.25, 0.48)
+    note_more: tuple[float, float] = (0.93, 0.06)
+    post_editor_first_image: tuple[float, float] = (0.14, 0.15)
+    post_editor_edit_image: tuple[float, float] = (0.72, 0.72)
+    image_editor_add: tuple[float, float] = (0.87, 0.846)
+    image_editor_strip_add: tuple[float, float] = (0.47, 0.81)
+    image_editor_album_add: tuple[float, float] = (0.22, 0.865)
+    image_editor_first_thumbnail: tuple[float, float] = (0.16, 0.84)
+    image_editor_delete: tuple[float, float] = (0.90, 0.08)
+    image_editor_longpress_delete: tuple[float, float] = (0.11, 0.89)
+    image_editor_done: tuple[float, float] = (0.90, 0.94)
+    preview_delete: tuple[float, float] = (0.915, 0.715)
+    note_save: tuple[float, float] = (0.88, 0.94)
     grid_columns: tuple[float, ...] = (0.282, 0.618, 0.950)
     grid_rows: tuple[float, ...] = (0.170, 0.330, 0.490, 0.650)
     next_button: tuple[float, float] = (0.90, 0.94)
@@ -90,7 +127,6 @@ def find_adb(explicit: str | Path | None = None) -> Path:
     candidates.extend(
         [
             Path.home() / "AppData/Local/Android/Sdk/platform-tools/adb.exe",
-            Path.cwd().parent / "Xiaomi8/.local/android-sdk/platform-tools/adb.exe",
         ]
     )
     for candidate in candidates:
@@ -231,10 +267,19 @@ class AdbClient:
             remote_files.append(remote)
         return remote_files
 
+    def remove_remote_dir(self, remote_dir: str) -> None:
+        if not remote_dir.startswith(f"{DEFAULT_REMOTE_ROOT}/"):
+            raise AdbPublishError(f"refusing to remove unexpected phone directory: {remote_dir}")
+        self.shell("rm", "-rf", remote_dir)
+
 
 def choose_device(adb_path: str | Path, serial: str | None = None) -> tuple[AdbClient, AndroidDevice]:
     client = AdbClient(adb_path, serial=serial)
     return client, client.select_device()
+
+
+def _phone_album_name_for_pack(pack_path: Path) -> str:
+    return "-".join(part for part in pack_path.parts[-2:] if part) or pack_path.name
 
 
 def adb_device_report(adb_path: str | Path | None = None, serial: str | None = None) -> dict[str, Any]:
@@ -350,6 +395,22 @@ def _dismiss_optional_media_location_dialog(device: Any) -> None:
     deny = "\u62d2\u7edd"
     if _click_any(device, [{"text": deny}], timeout=1):
         _human_pause(0.8, 1.8)
+    _human_pause(1.2, 3.0)
+
+
+def _click_final_publish_button(device: Any, profile: Xiaomi8TapProfile) -> bool:
+    if _click_any(device, [{"text": "\u5b8c\u6210"}, {"description": "\u5b8c\u6210"}], timeout=1):
+        _human_pause(0.8, 1.6)
+    publish_selectors = [
+        {"textMatches": "^(\u53d1\u7b14\u8bb0|\u53d1\u5e03|\u53d1\u5e03\u7b14\u8bb0)$"},
+        {"descriptionMatches": "^(\u53d1\u7b14\u8bb0|\u53d1\u5e03|\u53d1\u5e03\u7b14\u8bb0)$"},
+        {"textContains": "\u53d1\u7b14\u8bb0"},
+        {"descriptionContains": "\u53d1\u7b14\u8bb0"},
+    ]
+    if _click_any(device, publish_selectors, timeout=3):
+        return True
+    _relative_click(device, profile.next_button)
+    return True
 
 
 def _wait_for_activity(device: Any, expected: str, timeout: float = 8.0) -> str:
@@ -423,7 +484,13 @@ def _open_dedicated_album(device: Any, profile: Xiaomi8TapProfile, album_name: s
     if not _element_exists(header, timeout=2):
         raise AdbPublishError(f"dedicated album did not open: {album_name}")
 
-def _select_newest_images(device: Any, count: int, profile: Xiaomi8TapProfile) -> None:
+def _select_newest_images(
+    device: Any,
+    count: int,
+    profile: Xiaomi8TapProfile,
+    *,
+    expected_activity: str | None = "CapaPost",
+) -> None:
     if count < 1:
         raise AdbPublishError("publish pack has no images")
     capacity = len(profile.grid_columns) * len(profile.grid_rows)
@@ -445,7 +512,513 @@ def _select_newest_images(device: Any, count: int, profile: Xiaomi8TapProfile) -
     _human_pause(2.5, 5.5)
     if _click_any(device, [{"textMatches": "^\u4e0b\u4e00\u6b65$"}], timeout=2):
         _human_pause(2.5, 5.5)
-    _wait_for_activity(device, "CapaPost", timeout=10.0)
+    if expected_activity:
+        _wait_for_activity(device, expected_activity, timeout=10.0)
+
+
+def _profile_note_candidate(device: Any, note_hint: str) -> Any | None:
+    selectors = [
+        {"descriptionContains": note_hint},
+        {"textContains": note_hint},
+        {"descriptionMatches": f".*{re.escape(note_hint)}.*"},
+        {"textMatches": f".*{re.escape(note_hint)}.*"},
+    ]
+    for selector in selectors:
+        element = device(**selector)
+        if _element_exists(element, timeout=0.6):
+            return element
+    return None
+
+
+def _open_profile_latest_note(device: Any, profile: Xiaomi8TapProfile, note_hint: str | None = None) -> None:
+    if not _click_any(
+        device,
+        [
+            {"text": "\u6211\u7684"},
+            {"description": "\u6211\u7684"},
+        ],
+        timeout=2,
+    ):
+        _relative_click(device, profile.profile_tab)
+    _human_pause(1.6, 3.5)
+    width, height = device.window_size()
+    device.swipe(
+        int(width * 0.50),
+        int(height * 0.78),
+        int(width * 0.50),
+        int(height * 0.36),
+        duration=0.35,
+    )
+    _human_pause(0.9, 2.0)
+    if note_hint:
+        for _ in range(4):
+            candidate = _profile_note_candidate(device, note_hint)
+            if candidate is not None:
+                _human_tap_element(device, candidate)
+                _human_pause(2.0, 4.5)
+                return
+            device.swipe(
+                int(width * 0.50),
+                int(height * 0.66),
+                int(width * 0.50),
+                int(height * 0.28),
+                duration=0.35,
+            )
+            _human_pause(0.9, 2.0)
+    _relative_click(device, profile.first_profile_note)
+    _human_pause(2.0, 4.5)
+def _open_note_edit_from_detail(device: Any, profile: Xiaomi8TapProfile) -> None:
+    if _click_any(
+        device,
+        [
+            {"textMatches": ".*(编辑和权限设置|编辑与权限设置).*"},
+            {"descriptionMatches": ".*(编辑和权限设置|编辑与权限设置).*"},
+        ],
+        timeout=2,
+    ):
+        _human_pause(0.8, 1.8)
+        if _click_any(device, [{"text": "编辑"}, {"description": "编辑"}], timeout=2.5):
+            _human_pause(2.0, 4.5)
+            return
+    if not _click_any(
+        device,
+        [
+            {"textMatches": ".*(更多|更多操作|菜单).*"},
+            {"descriptionMatches": ".*(更多|更多操作|菜单|more|More).*"},
+        ],
+        timeout=2,
+    ):
+        _relative_click(device, profile.note_more)
+    _human_pause(0.8, 2.0)
+    if not _click_any(
+        device,
+        [
+            {"textMatches": ".*(编辑|编辑笔记|修改).*"},
+            {"descriptionMatches": ".*(编辑|编辑笔记|修改).*"},
+        ],
+        timeout=4,
+    ):
+        raise AdbPublishError("latest note edit button was not found")
+    _click_any(
+        device,
+        [
+            {"textMatches": ".*(继续编辑|确认|确定|知道了).*"},
+            {"descriptionMatches": ".*(继续编辑|确认|确定|知道了).*"},
+        ],
+        timeout=1.5,
+    )
+    _human_pause(2.0, 4.5)
+
+
+def _open_first_image_editor(device: Any, profile: Xiaomi8TapProfile) -> None:
+    _relative_click(device, profile.post_editor_first_image)
+    _human_pause(0.7, 1.8)
+    _wait_for_activity(device, "CapaNotePreview", timeout=30.0)
+    if not _click_any(
+        device,
+        [
+            {"textMatches": ".*(编辑图片|编辑照片|修图).*"},
+            {"descriptionMatches": ".*(编辑图片|编辑照片|修图).*"},
+        ],
+        timeout=2,
+    ):
+        _relative_click(device, profile.post_editor_edit_image)
+    _human_pause(1.1, 2.6)
+    _wait_for_activity(device, "ImageEditActivity3", timeout=15.0)
+
+
+def _swipe_image_editor_to_end(device: Any, swipes: int = 10) -> None:
+    width, height = device.window_size()
+    for _ in range(swipes):
+        device.swipe(
+            int(width * 0.93),
+            int(height * 0.855),
+            int(width * 0.08),
+            int(height * 0.855),
+            duration=0.45,
+        )
+        _human_pause(0.22, 0.58)
+
+
+def _swipe_image_editor_to_start(device: Any, swipes: int = 10) -> None:
+    width, height = device.window_size()
+    for _ in range(swipes):
+        device.swipe(
+            int(width * 0.08),
+            int(height * 0.855),
+            int(width * 0.93),
+            int(height * 0.855),
+            duration=0.45,
+        )
+        _human_pause(0.22, 0.58)
+
+
+def _image_editor_thumbnail_bounds(device: Any) -> list[dict[str, int]]:
+    try:
+        xml = device.dump_hierarchy()
+    except Exception:
+        return []
+    try:
+        root = ET.fromstring(xml)
+    except ET.ParseError:
+        return []
+    width, height = device.window_size()
+    lower_top = int(height * 0.82)
+    lower_bottom = int(height * 0.90)
+    bounds_list: list[dict[str, int]] = []
+    for node in root.iter("node"):
+        if node.attrib.get("clickable") != "true":
+            continue
+        bounds = node.attrib.get("bounds", "")
+        nums = [int(x) for x in re.findall(r"\d+", bounds)]
+        if len(nums) != 4:
+            continue
+        left, top, right, bottom = nums
+        if top < lower_top or bottom > lower_bottom:
+            continue
+        if right - left < int(width * 0.08):
+            continue
+        bounds_list.append({"left": left, "top": top, "right": right, "bottom": bottom})
+    return sorted(bounds_list, key=lambda bounds: bounds["left"])
+
+
+def _human_long_press_bounds(device: Any, bounds: dict[str, int]) -> None:
+    width, height = device.window_size()
+    left, top, right, bottom = bounds["left"], bounds["top"], bounds["right"], bounds["bottom"]
+    center_x = (left + right) / 2
+    center_y = (top + bottom) / 2
+    x = int(random.triangular(center_x - 10, center_x + 10, center_x))
+    y = int(random.triangular(center_y - 8, center_y + 8, center_y))
+    x = max(1, min(width - 2, x))
+    y = max(1, min(height - 2, y))
+    _human_pause(0.18, 0.55)
+    device.touch.down(x, y)
+    time.sleep(random.triangular(0.62, 0.96, 0.74))
+    device.touch.up(x, y)
+    _human_pause(0.35, 0.85)
+
+
+def _click_image_editor_add_tile(device: Any, profile: Xiaomi8TapProfile) -> bool:
+    candidates = _image_editor_thumbnail_bounds(device)
+    if candidates:
+        _human_tap(device, bounds=candidates[-1])
+        return True
+    _relative_click(device, profile.image_editor_add)
+    return True
+
+
+def _append_new_images_from_album(
+    device: Any,
+    profile: Xiaomi8TapProfile,
+    album_name: str,
+    image_count: int,
+) -> None:
+    _wait_for_activity(device, "ImageEditActivity3", timeout=4.0)
+    _swipe_image_editor_to_end(device, 8)
+    _human_pause(0.9, 2.0)
+    _click_image_editor_add_tile(device, profile)
+    _human_pause(0.9, 2.0)
+    if "ImageEditActivity3" in device.app_current().get("activity", ""):
+        _swipe_image_editor_to_end(device, 4)
+        _human_pause(0.8, 1.6)
+        _click_image_editor_add_tile(device, profile)
+        _human_pause(0.9, 2.0)
+    _wait_for_activity(device, "MaterialSelectActivity", timeout=10.0)
+    _open_dedicated_material_album(device, album_name)
+    _select_material_album_images(device, image_count)
+    _human_pause(1.6, 3.8)
+
+
+def _material_album_selected(device: Any, album_name: str) -> bool:
+    title = device(text=album_name)
+    return _element_exists(title, timeout=0.6)
+
+
+def _open_dedicated_material_album(device: Any, album_name: str) -> None:
+    if _material_album_selected(device, album_name):
+        return
+    if not _click_any(
+        device,
+        [
+            {"textMatches": ".*(全部|相册).*"},
+            {"descriptionMatches": ".*(全部|相册).*"},
+        ],
+        timeout=2,
+    ):
+        _relative_click(device, (0.52, 0.065))
+    _human_pause(0.8, 1.8)
+    album = _album_candidate(device, album_name, timeout=1.0)
+    for _ in range(6):
+        if album is not None:
+            _human_tap_element(device, album)
+            _human_pause(0.9, 1.8)
+            return
+        _scroll_album_list(device)
+        album = _album_candidate(device, album_name, timeout=0.6)
+    raise AdbPublishError(f"dedicated material album was not found: {album_name}")
+
+
+def _material_selection_bounds(device: Any) -> list[dict[str, int]]:
+    hierarchy = device.dump_hierarchy()
+    bounds: list[dict[str, int]] = []
+    pattern = re.compile(
+        r'class="android\.widget\.FrameLayout"[^>]*clickable="true"[^>]*'
+        r'selected="false"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"'
+    )
+    for match in pattern.finditer(hierarchy):
+        left, top, right, bottom = [int(value) for value in match.groups()]
+        width = right - left
+        height = bottom - top
+        if 80 <= width <= 180 and 80 <= height <= 180 and top > 180:
+            bounds.append({"left": left, "top": top, "right": right, "bottom": bottom})
+    bounds.sort(key=lambda item: (item["top"], item["left"]))
+    return bounds
+
+
+def _select_material_album_images(device: Any, count: int) -> None:
+    _scroll_material_album_to_top(device)
+    selected = 0
+    while selected < count:
+        candidates = _material_selection_bounds(device)
+        if not candidates:
+            raise AdbPublishError(f"no selectable images found in material album after selecting {selected}/{count}")
+        for bounds in candidates:
+            if selected >= count:
+                break
+            _human_tap(device, bounds=bounds)
+            selected += 1
+            _human_pause(0.18, 0.55)
+        if selected < count:
+            width, height = device.window_size()
+            device.swipe(
+                int(width * 0.50),
+                int(height * 0.82),
+                int(width * 0.50),
+                int(height * 0.30),
+                duration=0.35,
+            )
+            _human_pause(0.55, 1.15)
+    if not _click_any(
+        device,
+        [
+            {"textMatches": ".*下一步.*"},
+            {"descriptionMatches": ".*下一步.*"},
+        ],
+        timeout=2,
+    ):
+        _relative_click(device, (0.82, 0.94))
+    _human_pause(4.5, 8.0)
+    _wait_for_activity(device, "ImageEditActivity3", timeout=12.0)
+
+
+def _delete_images_from_image_editor(device: Any, profile: Xiaomi8TapProfile, count: int) -> None:
+    if count < 0:
+        raise AdbPublishError(f"old image count must not be negative: {count}")
+    if count == 0:
+        return
+    _wait_for_activity(device, "ImageEditActivity3", timeout=12.0)
+    _swipe_image_editor_to_start(device, min(count, 8))
+    for _ in range(count):
+        thumbnails = _image_editor_thumbnail_bounds(device)
+        if thumbnails:
+            _human_long_press_bounds(device, thumbnails[0])
+        else:
+            _human_long_press(device, profile.image_editor_first_thumbnail)
+        _human_pause(0.6, 1.4)
+        if not _click_any(
+            device,
+            [
+                {"text": "\u5220\u9664"},
+                {"textMatches": ".*(\u5220\u9664|\u79fb\u9664).*"},
+                {"descriptionMatches": ".*(\u5220\u9664|\u79fb\u9664).*"},
+            ],
+            timeout=2.0,
+        ):
+            _relative_click(device, profile.image_editor_longpress_delete)
+        _human_pause(0.8, 1.8)
+    _human_pause(1.0, 2.5)
+
+
+def _scroll_material_album_to_top(device: Any, swipes: int = 8) -> None:
+    width, height = device.window_size()
+    for _ in range(swipes):
+        device.swipe(
+            int(width * 0.50),
+            int(height * 0.32),
+            int(width * 0.50),
+            int(height * 0.86),
+            duration=0.35,
+        )
+        _human_pause(0.18, 0.42)
+
+
+def _delete_front_images_from_preview(
+    device: Any,
+    profile: Xiaomi8TapProfile,
+    count: int,
+    *,
+    total_image_count: int | None = None,
+) -> None:
+    if count < 0:
+        raise AdbPublishError(f"old image count must not be negative: {count}")
+    if count == 0:
+        return
+    _wait_for_activity(device, "CapaNotePreview", timeout=8.0)
+    swipe_count = count
+    if total_image_count is not None:
+        swipe_count = max(swipe_count, total_image_count - 1)
+    _swipe_preview_to_first_image(device, swipe_count)
+    for _ in range(count):
+        if not _click_any(
+            device,
+            [
+                {"textMatches": ".*(删除|移除).*"},
+                {"descriptionMatches": ".*(删除|移除).*"},
+            ],
+            timeout=1.5,
+        ):
+            _relative_click(device, profile.preview_delete)
+        _click_any(
+            device,
+            [
+                {"textMatches": "^(删除|确认|确定)$"},
+                {"descriptionMatches": "^(删除|确认|确定)$"},
+            ],
+            timeout=2,
+        )
+        _human_pause(0.8, 1.8)
+
+
+def _preview_page_position(device: Any) -> tuple[int, int] | None:
+    try:
+        hierarchy = device.dump_hierarchy()
+    except AttributeError:
+        return None
+    match = re.search(r'(?:(?:text|content-desc)=")(\d+)/(\d+)"', hierarchy)
+    if not match:
+        return None
+    return int(match.group(1)), int(match.group(2))
+
+
+def _delete_front_images_from_preview_counted(
+    device: Any,
+    profile: Xiaomi8TapProfile,
+    count: int,
+    *,
+    total_image_count: int,
+) -> None:
+    target_total = max(total_image_count - count, 1)
+    swipe_count = max(count, total_image_count - 1)
+    deleted = 0
+    while deleted < count:
+        _swipe_preview_to_first_image(device, swipe_count)
+        before = _preview_page_position(device)
+        if before is not None and before[1] <= target_total:
+            break
+        if not _click_any(
+            device,
+            [
+                {"text": "\u5220\u9664"},
+                {"textMatches": ".*(\u5220\u9664|\u79fb\u9664).*"},
+                {"descriptionMatches": ".*(\u5220\u9664|\u79fb\u9664).*"},
+            ],
+            timeout=1.5,
+        ):
+            _relative_click(device, profile.preview_delete)
+        _click_any(
+            device,
+            [
+                {"textMatches": "^(\u5220\u9664|\u786e\u8ba4|\u786e\u5b9a)$"},
+                {"descriptionMatches": "^(\u5220\u9664|\u786e\u8ba4|\u786e\u5b9a)$"},
+            ],
+            timeout=2,
+        )
+        _human_pause(0.8, 1.8)
+        deleted += 1
+        after = _preview_page_position(device)
+        if before is not None and after is not None and after[1] >= before[1]:
+            raise AdbPublishError(f"preview image delete did not reduce image count: {before} -> {after}")
+    final = _preview_page_position(device)
+    if final is not None and final[1] != target_total:
+        raise AdbPublishError(f"preview image count is {final[1]}, expected {target_total}")
+
+
+def _swipe_preview_to_first_image(device: Any, swipes: int) -> None:
+    width, height = device.window_size()
+    position = _preview_page_position(device)
+    if position is not None and position[0] == 1:
+        return
+    for _ in range(swipes):
+        position = _preview_page_position(device)
+        if position is not None and position[0] == 1:
+            return
+        device.swipe(
+            int(width * 0.18),
+            int(height * 0.46),
+            int(width * 0.86),
+            int(height * 0.46),
+            duration=0.32,
+        )
+        _human_pause(0.18, 0.45)
+
+
+def _finish_image_editor(device: Any, profile: Xiaomi8TapProfile) -> None:
+    if not _click_any(
+        device,
+        [
+            {"textMatches": "^(完成|保存|下一步)$"},
+            {"descriptionMatches": "^(完成|保存|下一步)$"},
+        ],
+        timeout=2,
+    ):
+        _relative_click(device, profile.image_editor_done)
+    _human_pause(1.2, 3.0)
+    _wait_for_activity(device, "CapaNotePreview", timeout=10.0)
+
+
+def _replace_note_images_from_album(
+    device: Any,
+    profile: Xiaomi8TapProfile,
+    album_name: str,
+    new_image_count: int,
+    old_image_count: int,
+) -> None:
+    if new_image_count < 1:
+        raise AdbPublishError("replacement publish pack has no images")
+    _open_first_image_editor(device, profile)
+    placeholder_count = 1 if old_image_count > 0 else 0
+    old_images_to_remove_before_append = max(old_image_count - placeholder_count, 0)
+    _delete_images_from_image_editor(device, profile, old_images_to_remove_before_append)
+    _append_new_images_from_album(device, profile, album_name, new_image_count)
+    _finish_image_editor(device, profile)
+    if placeholder_count:
+        _delete_front_images_from_preview_counted(
+            device,
+            profile,
+            placeholder_count,
+            total_image_count=placeholder_count + new_image_count,
+        )
+
+
+def _save_note_edit(device: Any, profile: Xiaomi8TapProfile) -> None:
+    if not _click_any(
+        device,
+        [
+            {"textMatches": "^(保存|发布|完成|更新|提交)$"},
+            {"descriptionMatches": "^(保存|发布|完成|更新|提交)$"},
+        ],
+        timeout=3,
+    ):
+        _relative_click(device, profile.note_save)
+    _click_any(
+        device,
+        [
+            {"textMatches": ".*(确认|确定|继续|保存修改|发布修改).*"},
+            {"descriptionMatches": ".*(确认|确定|继续|保存修改|发布修改).*"},
+        ],
+        timeout=2,
+    )
+    _human_pause(3.5, 7.0)
 
 
 def _human_long_press_element(device: Any, element: Any) -> None:
@@ -457,6 +1030,20 @@ def _human_long_press_element(device: Any, element: Any) -> None:
     center_y = (bounds["top"] + bounds["bottom"]) / 2
     x = int(random.triangular(center_x - 18, center_x + 18, center_x))
     y = int(random.triangular(center_y - 10, center_y + 10, center_y))
+    x = max(1, min(width - 2, x))
+    y = max(1, min(height - 2, y))
+    _human_pause(0.18, 0.55)
+    device.touch.down(x, y)
+    time.sleep(random.triangular(0.62, 0.96, 0.74))
+    device.touch.up(x, y)
+    _human_pause(0.35, 0.85)
+
+
+def _human_long_press(device: Any, point: tuple[float, float]) -> None:
+    width, height = device.window_size()
+    base_x, base_y = width * point[0], height * point[1]
+    x = int(random.triangular(base_x - width * 0.008, base_x + width * 0.008, base_x))
+    y = int(random.triangular(base_y - height * 0.006, base_y + height * 0.006, base_y))
     x = max(1, min(width - 2, x))
     y = max(1, min(height - 2, y))
     _human_pause(0.18, 0.55)
@@ -571,7 +1158,7 @@ def _fill_post(device: Any, title: str, body: str) -> None:
             raise AdbPublishError("Xiaohongshu body field did not become editable")
         body_field = fields[1]
     _human_pause(0.7, 2.1)
-    _paste_via_touch(device, body_field, main_body)
+    _paste_via_touch(device, body_field, body_text_before_tags(main_body, tags))
     _select_clickable_topics(device, body_field, tags)
     _human_pause(0.9, 2.6)
     if _field_text(fields[0]).strip() != title.strip():
@@ -600,7 +1187,7 @@ def publish_pack_via_adb(
     client, selected = choose_device(resolved_adb, serial)
     client.wake_and_dismiss_keyguard()
 
-    session_name = "-".join(part for part in pack_path.parts[-2:] if part)
+    session_name = _phone_album_name_for_pack(pack_path)
     remote_dir = f"{DEFAULT_REMOTE_ROOT}/{session_name}"
     client.push_images(images, remote_dir)
 
@@ -619,16 +1206,18 @@ def publish_pack_via_adb(
     _fill_post(device, title, body)
     device.screenshot(str(screenshot_path))
     if publish:
-        publish_text = "\u53d1\u5e03"
-        if not _click_any(device, [{"textMatches": f"^{publish_text}(笔记)?$"}, {"descriptionMatches": f"^{publish_text}(笔记)?$"}], timeout=3):
+        if not _click_final_publish_button(device, profile):
             raise AdbPublishError("final publish button was not found")
         _human_pause(3.5, 7.0)
         screenshot_path = screenshot_dir / "xhs_adb_after_publish.png"
         device.screenshot(str(screenshot_path))
+        client.remove_remote_dir(remote_dir)
         status = "submitted"
-        message = "final publish button clicked"
+        remote_deleted = True
+        message = "final publish button clicked; phone images removed"
     else:
         status = "ready"
+        remote_deleted = False
         message = "post filled and waiting for review; pass --publish to submit"
 
     return AdbPublishResult(
@@ -637,6 +1226,97 @@ def publish_pack_via_adb(
         title=title,
         image_count=len(images),
         remote_dir=remote_dir,
+        remote_deleted=remote_deleted,
         screenshot=screenshot_path,
         message=message,
+    )
+
+
+def replace_latest_note_images_via_adb(
+    pack_dir: str | Path,
+    *,
+    adb_path: str | Path | None = None,
+    serial: str | None = None,
+    old_image_count: int | None = None,
+    submit: bool = False,
+    output_dir: str | Path | None = None,
+    device_factory: Callable[[str], Any] = _connect_uiautomator,
+) -> AdbReplaceImagesResult:
+    pack_path = Path(pack_dir)
+    images, _ = publish_pack_files(pack_path)
+    resolved_adb = find_adb(adb_path)
+    client, selected = choose_device(resolved_adb, serial)
+    client.wake_and_dismiss_keyguard()
+
+    album_name = _phone_album_name_for_pack(pack_path)
+    remote_dir = f"{DEFAULT_REMOTE_ROOT}/{album_name}"
+    client.push_images(images, remote_dir)
+
+    replacement_old_count = old_image_count if old_image_count is not None else len(images)
+    if replacement_old_count < 0:
+        raise AdbPublishError(f"old image count must not be negative: {replacement_old_count}")
+
+    device = device_factory(selected.serial)
+    screenshot_dir = Path(output_dir) if output_dir else runtime_root() / "adb-xhs"
+    screenshot_dir.mkdir(parents=True, exist_ok=True)
+    profile = Xiaomi8TapProfile()
+
+    device.screen_on()
+    _prepare_xhs_home(device)
+    _open_profile_latest_note(device, profile, note_hint=pack_path.name)
+    _open_note_edit_from_detail(device, profile)
+    _replace_note_images_from_album(
+        device,
+        profile,
+        album_name,
+        len(images),
+        replacement_old_count,
+    )
+
+    if submit:
+        _save_note_edit(device, profile)
+        screenshot_path = screenshot_dir / "xhs_adb_replace_after_submit.png"
+        device.screenshot(str(screenshot_path))
+        client.remove_remote_dir(remote_dir)
+        status = "submitted"
+        remote_deleted = True
+        message = "latest note images replaced and phone images removed"
+    else:
+        screenshot_path = screenshot_dir / "xhs_adb_replace_ready.png"
+        device.screenshot(str(screenshot_path))
+        status = "ready"
+        remote_deleted = False
+        message = "latest note images replaced in editor; pass --submit to save and remove phone images"
+
+    return AdbReplaceImagesResult(
+        status=status,
+        serial=selected.serial,
+        image_count=len(images),
+        old_image_count=replacement_old_count,
+        remote_dir=remote_dir,
+        remote_deleted=remote_deleted,
+        screenshot=screenshot_path,
+        message=message,
+    )
+
+
+def push_publish_pack_images_via_adb(
+    pack_dir: str | Path,
+    *,
+    adb_path: str | Path | None = None,
+    serial: str | None = None,
+) -> AdbImagePushResult:
+    pack_path = Path(pack_dir)
+    images, _ = publish_pack_files(pack_path)
+    resolved_adb = find_adb(adb_path)
+    client, selected = choose_device(resolved_adb, serial)
+    session_name = _phone_album_name_for_pack(pack_path)
+    remote_dir = f"{DEFAULT_REMOTE_ROOT}/{session_name}"
+    remote_files = client.push_images(images, remote_dir)
+    return AdbImagePushResult(
+        status="pushed",
+        serial=selected.serial,
+        image_count=len(remote_files),
+        remote_dir=remote_dir,
+        remote_files=remote_files,
     )

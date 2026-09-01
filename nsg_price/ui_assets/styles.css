@@ -1597,7 +1597,7 @@
     }
     .editor-main {
       display: grid;
-      grid-template-rows: minmax(176px, .58fr) minmax(0, 1.42fr);
+      grid-template-rows: auto minmax(0, 1fr);
       gap: 12px;
       height: 100%;
       min-height: 0;
@@ -1606,7 +1606,7 @@
     .basic-panel {
       height: auto;
       min-height: 0;
-      overflow: auto;
+      overflow: visible;
     }
     .basic-panel .grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1629,14 +1629,75 @@
     }
     .editor-side {
       display: grid;
-      grid-template-rows: minmax(150px, .42fr) minmax(0, 1.58fr);
-      gap: 12px;
+      grid-template-rows: auto auto minmax(0, 1fr);
+      gap: 8px;
       min-height: 0;
       overflow: hidden;
     }
     .search-panel {
       min-height: 0;
-      overflow: auto;
+      overflow: visible;
+      padding: 10px 12px;
+    }
+    .search-panel .panel-header {
+      margin-bottom: 8px;
+    }
+    .search-panel .panel-title {
+      font-size: 15px;
+    }
+    .search-panel .panel-note {
+      display: none;
+    }
+    .search-panel .grid {
+      gap: 8px;
+    }
+    .search-panel input {
+      min-height: 34px;
+      padding: 6px 9px;
+    }
+    .search-panel .toolbar {
+      margin-top: 8px !important;
+    }
+    .search-panel .toolbar button {
+      min-height: 34px;
+      padding: 6px 10px;
+    }
+    .manual-price-panel {
+      padding: 8px 10px;
+      min-height: 0;
+    }
+    .manual-price-panel .panel-header {
+      margin-bottom: 6px;
+    }
+    .manual-price-panel .panel-title {
+      font-size: 13px;
+    }
+    .manual-price-panel .status {
+      max-width: 180px;
+      min-height: 24px;
+      padding: 4px 8px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .manual-price-grid {
+      display: grid;
+      grid-template-columns: minmax(120px, 1fr) minmax(82px, .65fr) auto;
+      gap: 6px;
+      align-items: end;
+    }
+    .manual-price-grid input,
+    .manual-price-grid select,
+    .manual-price-panel button {
+      min-height: 32px;
+      padding: 5px 9px;
+      border-radius: 10px;
+    }
+    .manual-price-panel .toolbar {
+      display: contents;
+    }
+    .manual-price-panel .toolbar button {
+      white-space: nowrap;
     }
     .match-panel {
       min-height: 0;
@@ -1693,5 +1754,11 @@
       .editor-side {
         grid-template-rows: auto;
         overflow: visible;
+      }
+      .manual-price-grid {
+        grid-template-columns: 1fr;
+      }
+      .manual-price-panel .toolbar {
+        display: flex;
       }
     }

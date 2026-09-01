@@ -93,12 +93,12 @@ const state = { config: null, games: [], selected: null, matches: [], draggedSlu
     function autoScrollGames(clientY) {
       const list = $("games");
       const rect = list.getBoundingClientRect();
-      const edge = 76;
+      const scrollMargin = 76;
       let delta = 0;
-      if (clientY < rect.top + edge) {
-        delta = -Math.ceil((edge - (clientY - rect.top)) / 4);
-      } else if (clientY > rect.bottom - edge) {
-        delta = Math.ceil((edge - (rect.bottom - clientY)) / 4);
+      if (clientY < rect.top + scrollMargin) {
+        delta = -Math.ceil((scrollMargin - (clientY - rect.top)) / 4);
+      } else if (clientY > rect.bottom - scrollMargin) {
+        delta = Math.ceil((scrollMargin - (rect.bottom - clientY)) / 4);
       }
       if (delta) list.scrollTop += delta;
       list.classList.toggle("auto-scroll-up", delta < 0);
@@ -183,6 +183,7 @@ const state = { config: null, games: [], selected: null, matches: [], draggedSlu
       };
       $("games").ondragleave = stopAutoScrollGames;
       renderForm();
+      renderManualPriceForm();
       renderMerchantSettings();
       renderMatches();
     }
@@ -268,6 +269,26 @@ const state = { config: null, games: [], selected: null, matches: [], draggedSlu
       });
     }
 
+    function renderManualPriceForm() {
+      const game = selectedGame();
+      const merchantSelect = $("manualMerchant");
+      const previousMerchant = merchantSelect.value;
+      merchantSelect.innerHTML = "";
+      Object.entries(merchantNames).forEach(([key, name]) => {
+        const option = document.createElement("option");
+        option.value = key;
+        option.textContent = name;
+        merchantSelect.appendChild(option);
+      });
+      if (previousMerchant && merchantNames[previousMerchant]) {
+        merchantSelect.value = previousMerchant;
+      }
+      $("manualPriceBtn").disabled = !game || !merchantSelect.value;
+      if (!game) {
+        $("manualRecyclePrice").value = "";
+      }
+    }
+
     function collectForm() {
       const merchant_ids = {};
       $("merchants").querySelectorAll("input[data-merchant]").forEach((input) => {
@@ -311,6 +332,30 @@ const state = { config: null, games: [], selected: null, matches: [], draggedSlu
         await load();
       } catch (error) {
         setStatus("formStatus", "warn", error.message);
+      }
+    }
+
+    async function saveManualPrice() {
+      const game = selectedGame();
+      if (!game) return;
+      const recyclePrice = $("manualRecyclePrice").value.trim();
+      if (!recyclePrice) {
+        setStatus("manualPriceStatus", "warn", "请填写回收价。");
+        return;
+      }
+      setStatus("manualPriceStatus", "info", "正在保存手动价格...");
+      try {
+        await api("/api/prices/manual", {
+          method: "POST",
+          body: JSON.stringify({
+            game_slug: game.slug,
+            merchant: $("manualMerchant").value,
+            recycle_price: recyclePrice,
+          }),
+        });
+        setStatus("manualPriceStatus", "ok", "手动价格已写入今天的价格记录。");
+      } catch (error) {
+        setStatus("manualPriceStatus", "warn", error.message);
       }
     }
 
@@ -435,12 +480,14 @@ const state = { config: null, games: [], selected: null, matches: [], draggedSlu
       $("platform").value = "Nintendo Switch";
       $("enabled").value = "true";
       renderForm();
+      renderManualPriceForm();
       setStatus("formStatus", "soft", "正在创建新游戏，填写后点击“保存当前游戏”。");
       setStatus("searchStatus", "soft", "新游戏保存后才可执行自动匹配。");
     };
     $("filter").oninput = render;
     $("saveBtn").onclick = saveGame;
     $("deleteBtn").onclick = deleteGame;
+    $("manualPriceBtn").onclick = saveManualPrice;
     $("searchBtn").onclick = () => searchGame(false);
     $("applySearchBtn").onclick = () => searchGame(true);
     load().catch((error) => setStatus("formStatus", "warn", error.message));

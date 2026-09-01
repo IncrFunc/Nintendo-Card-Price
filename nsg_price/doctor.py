@@ -52,11 +52,9 @@ def expected_report_files(game_count: int) -> dict[str, list[str]]:
     return {"png": png, "svg": svg, "json": json_files}
 
 
-def report_status(target_date: str | None = None, game_count: int = 0, session: str | None = None) -> dict[str, Any]:
+def report_status(target_date: str | None = None, game_count: int = 0) -> dict[str, Any]:
     date = target_date or datetime.now().date().isoformat()
     current_report_dir = report_dir(date)
-    if session:
-        current_report_dir = current_report_dir / session
     expected = expected_report_files(game_count)
     expected_all = expected["png"] + expected["svg"] + expected["json"]
     existing = {path.name for path in current_report_dir.glob("*")} if current_report_dir.exists() else set()
@@ -89,15 +87,12 @@ def manifest_image_paths(manifest: Any) -> list[Path]:
     return [Path(item["file"]) for item in manifest.get("images", []) if isinstance(item, dict) and item.get("file")]
 
 
-def task_readiness(config: dict[str, Any], target_date: str | None = None, session: str | None = None) -> dict[str, Any]:
+def task_readiness(config: dict[str, Any], target_date: str | None = None) -> dict[str, Any]:
     games = enabled_games(config)
     game_slugs = {str(game.get("slug", "")) for game in games}
     date = target_date or datetime.now().date().isoformat()
     current_report_dir = report_dir(date, config)
     current_publish_dir = publish_dir(date, config)
-    if session:
-        current_report_dir = current_report_dir / session
-        current_publish_dir = current_publish_dir / session
     today_rows = load_json_or_none(current_report_dir / "today_prices.json")
     trend_rows = load_json_or_none(current_report_dir / "trend_series.json")
     manifest = load_json_or_none(current_publish_dir / "manifest.json")
@@ -148,14 +143,10 @@ def task_readiness(config: dict[str, Any], target_date: str | None = None, sessi
 
 def schedule_status(config: dict[str, Any]) -> list[str]:
     settings = config.get("settings", {})
-    if settings.get("daily_fetch_times"):
-        return list(settings["daily_fetch_times"])
-    if settings.get("daily_fetch_time"):
-        return [settings["daily_fetch_time"]]
-    return ["09:50", "15:50"]
+    return list(settings.get("daily_fetch_times") or ["11:50"])
 
 
-def build_doctor_report(config: dict[str, Any], target_date: str | None = None, session: str | None = None) -> dict[str, Any]:
+def build_doctor_report(config: dict[str, Any], target_date: str | None = None) -> dict[str, Any]:
     games = enabled_games(config)
     return {
         "games_enabled": len(games),
@@ -163,8 +154,8 @@ def build_doctor_report(config: dict[str, Any], target_date: str | None = None, 
         "daily_fetch_times": schedule_status(config),
         "required_env": required_env_status(config),
         "id_coverage": id_coverage(config),
-        "report": report_status(target_date, game_count=len(games), session=session),
-        "task_readiness": task_readiness(config, target_date, session=session),
+        "report": report_status(target_date, game_count=len(games)),
+        "task_readiness": task_readiness(config, target_date),
     }
 
 

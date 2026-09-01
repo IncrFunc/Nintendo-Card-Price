@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from nsg_price.config_tools import add_game, init_task_games, remove_game, set_game_enabled, set_id, update_game, update_ids_from_file
+from nsg_price.config_tools import add_game, init_example_games, remove_game, set_game_enabled, set_id, update_game, update_ids_from_file
 
 
 def base_config():
@@ -65,9 +65,9 @@ def test_update_ids_from_json(tmp_path):
     assert config["games"][0]["merchant_ids"]["hangzhouxizi"]["uuid"] == "u100"
 
 
-def test_init_task_games_and_enable_disable_remove():
+def test_init_example_games_and_enable_disable_remove():
     config = base_config()
-    changed = init_task_games(config, replace=True)
+    changed = init_example_games(config, replace=True)
     assert changed > 0
     assert len(config["games"]) == 26
     set_game_enabled(config, slug="zelda-breath-of-the-wild", enabled=False)

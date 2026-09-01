@@ -1,6 +1,7 @@
 from pathlib import Path
 
-from nsg_price.ui import INDEX_HTML, index_html, ui_asset_path
+from nsg_price.storage import load_price_records
+from nsg_price.ui import INDEX_HTML, index_html, save_manual_price, ui_asset_path
 
 
 APP_JS = ui_asset_path("app.js").read_text(encoding="utf-8")
@@ -51,7 +52,9 @@ def test_editor_uses_three_column_workbench_layout():
     assert "确认候选后直接写入当前游戏" not in INDEX_HTML
     assert ".editor-main {\n      display: contents;" in STYLES_CSS
     assert "grid-template-columns: minmax(300px, .72fr) minmax(560px, 1.28fr);" in STYLES_CSS
-    assert "grid-template-rows: minmax(150px, .42fr) minmax(0, 1.58fr);" in STYLES_CSS
+    assert "grid-template-rows: auto auto minmax(0, 1fr);" in STYLES_CSS
+    assert ".basic-panel {\n      height: auto;\n      min-height: 0;\n      overflow: visible;" in STYLES_CSS
+    assert ".search-panel {\n      min-height: 0;\n      overflow: visible;" in STYLES_CSS
 
 
 def test_game_list_supports_drag_reorder():
@@ -87,3 +90,49 @@ def test_inner_html_templates_escape_dynamic_text():
 def test_index_html_references_split_assets():
     assert '<link rel="stylesheet" href="/assets/styles.css">' in INDEX_HTML
     assert '<script src="/assets/app.js"></script>' in INDEX_HTML
+
+
+def test_manual_price_endpoint_and_ui_are_wired():
+    assert '"/api/prices/manual"' in APP_JS
+    assert "manualPriceBtn" in APP_JS
+    assert 'id="manualRecyclePrice"' in INDEX_HTML
+    assert 'id="manualMerchant"' in INDEX_HTML
+    assert "manualSellPrice" not in INDEX_HTML
+    assert "manualSellPrice" not in APP_JS
+    assert "卖价" not in INDEX_HTML
+    assert "grid-template-columns: minmax(120px, 1fr) minmax(82px, .65fr) auto;" in STYLES_CSS
+    assert '"/api/prices/manual"' in UI_PY
+    assert "save_manual_price" in UI_PY
+
+
+def test_save_manual_price_appends_today_override(tmp_path):
+    price_path = tmp_path / "prices.db"
+    config = {
+        "settings": {"storage": {"prices_path": str(price_path)}},
+        "merchants": {"hangzhouxizi": {"name": "Hangzhou Xizi"}},
+        "games": [{"slug": "zelda", "name": "Zelda"}],
+    }
+
+    record = save_manual_price(
+        config,
+        {
+            "game_slug": "zelda",
+            "merchant": "hangzhouxizi",
+            "recycle_price": "188.5",
+            "sell_price": "199",
+        },
+        target_date="2026-06-27",
+    )
+
+    records = load_price_records(price_path)
+    assert records == [record]
+    assert record["merchant"] == "hangzhouxizi"
+    assert record["merchant_name"] == "Hangzhou Xizi"
+    assert record["game_slug"] == "zelda"
+    assert record["game_name"] == "Zelda"
+    assert record["recycle_price"] == 188.5
+    assert record["sell_price"] == 199.0
+    assert record["status"] == "ok"
+    assert record["source"] == "manual"
+    assert record["fetched_at"] == "2026-06-27"
+    assert record["parser_note"] == "manual price override"

@@ -3,14 +3,17 @@ from __future__ import annotations
 import json
 import threading
 import webbrowser
+from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from .config import load_config, save_config
+from .config import find_game, load_config, save_config
 from .config_tools import add_game, remove_game, set_id, update_game
 from .search_ids import apply_search_matches, build_search_matches
+from .storage import append_prices, configured_price_path
+from .utils import as_money
 
 
 INDEX_HTML_PATH = Path(__file__).with_name("ui_assets") / "index.html"
@@ -33,6 +36,57 @@ def ui_asset_path(name: str) -> Path:
     if root not in path.parents or path.suffix not in UI_ASSET_TYPES:
         raise FileNotFoundError(name)
     return path
+
+
+def manual_price_record(
+    config: dict[str, Any],
+    payload: dict[str, Any],
+    *,
+    target_date: str | None = None,
+) -> dict[str, Any]:
+    game_slug = str(payload.get("game_slug") or "").strip()
+    merchant_key = str(payload.get("merchant") or "").strip()
+    recycle_price = as_money(payload.get("recycle_price"))
+    sell_price_value = payload.get("sell_price")
+    sell_price = None if sell_price_value in (None, "") else as_money(sell_price_value)
+    if not game_slug or not merchant_key:
+        raise ValueError("game_slug and merchant are required")
+    if recycle_price is None:
+        raise ValueError("recycle_price is required")
+    if sell_price_value not in (None, "") and sell_price is None:
+        raise ValueError("sell_price must be a number")
+    game = find_game(config, game_slug)
+    if not game:
+        raise ValueError(f"Game not found: {game_slug}")
+    merchant = config.get("merchants", {}).get(merchant_key)
+    if not merchant:
+        raise ValueError(f"Merchant not found: {merchant_key}")
+    return {
+        "merchant": merchant_key,
+        "merchant_name": str(merchant.get("name") or merchant_key),
+        "game_slug": game_slug,
+        "game_name": str(game.get("name") or game_slug),
+        "item_id": "manual",
+        "sku_id": None,
+        "sell_price": sell_price,
+        "recycle_price": recycle_price,
+        "currency": "CNY",
+        "status": "ok",
+        "fetched_at": target_date or datetime.now().date().isoformat(),
+        "source": "manual",
+        "parser_note": "manual price override",
+    }
+
+
+def save_manual_price(
+    config: dict[str, Any],
+    payload: dict[str, Any],
+    *,
+    target_date: str | None = None,
+) -> dict[str, Any]:
+    record = manual_price_record(config, payload, target_date=target_date)
+    append_prices(configured_price_path(config), [record])
+    return record
 
 
 class GameManagerHandler(BaseHTTPRequestHandler):
@@ -108,6 +162,16 @@ class GameManagerHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
         try:
+            if parsed.path == "/api/prices/manual":
+                payload = self.read_json()
+                config = load_config(self.config_path, resolve_env_vars=False)
+                try:
+                    record = save_manual_price(config, payload)
+                except ValueError as exc:
+                    self.send_json({"error": str(exc)}, status=400)
+                    return
+                self.send_json({"record": record})
+                return
             if parsed.path == "/api/search/apply":
                 payload = self.read_json()
                 game_slug = str(payload.get("game_slug") or "").strip()

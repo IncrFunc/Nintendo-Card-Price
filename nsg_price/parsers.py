@@ -95,6 +95,16 @@ DEDUCT_PATHS = [
     "data.buyDeduct",
 ]
 
+XIZI_RECYCLE_PRICE_KEYS = (
+    "hs_price_2",
+    "hs_price_1",
+    "hs_price",
+    "recycle_price",
+    "recyclePrice",
+    "receivePrice",
+    "price",
+)
+
 
 def first_value(data: Any, paths: list[str]) -> Any:
     for path in paths:
@@ -288,18 +298,42 @@ def parse_hangzhouxizi(data: dict[str, Any]) -> ParsedPrice:
         guige = data.get("guige") if isinstance(data.get("guige"), dict) else {}
         goods = get_path(detail, "data.goods") or {}
         guige_price = get_path(guige, "data.price") or {}
-        recycle_price = as_money(guige_price.get("hs_price_2")) if isinstance(guige_price, dict) else None
-        if recycle_price is None and isinstance(guige_price, dict):
-            recycle_price = as_money(guige_price.get("hs_price_1"))
+        goods_price = as_money(goods.get("price")) if isinstance(goods, dict) else None
+        sell_price = as_money(guige_price.get("price")) if isinstance(guige_price, dict) else None
+        if sell_price is None:
+            sell_price = goods_price
+        recycle_price = None
+        recycle_note = None
+        if isinstance(guige_price, dict):
+            for key in XIZI_RECYCLE_PRICE_KEYS:
+                recycle_price = as_money(guige_price.get(key))
+                if recycle_price is not None:
+                    recycle_note = f"recycle_price=guige.data.price.{key}"
+                    break
+        elif isinstance(guige_price, list):
+            for item in guige_price:
+                if not isinstance(item, dict):
+                    continue
+                for key in XIZI_RECYCLE_PRICE_KEYS:
+                    recycle_price = as_money(item.get(key))
+                    if recycle_price is not None:
+                        recycle_note = f"recycle_price=guige.data.price[].{key}"
+                        break
+                if recycle_price is not None:
+                    break
         if recycle_price is None:
-            raise ParserError("hangzhouxizi missing guige.data.price.hs_price_2")
+            recycle_price = goods_price
+            if recycle_price is not None:
+                recycle_note = "recycle_price=detail.data.goods.price fallback"
+        if recycle_price is None:
+            raise ParserError("hangzhouxizi missing guige.data.price recycle field and detail.data.goods.price")
         return ParsedPrice(
             game_name=str(goods.get("title") or goods.get("name")) if isinstance(goods, dict) and (goods.get("title") or goods.get("name")) is not None else None,
             item_id=str(goods.get("id")) if isinstance(goods, dict) and goods.get("id") is not None else None,
             sku_id=None,
-            sell_price=as_money(guige_price.get("price")) if isinstance(guige_price, dict) else None,
+            sell_price=sell_price,
             recycle_price=recycle_price,
-            parser_note="recycle_price=guige.data.price.hs_price_2",
+            parser_note=recycle_note,
         )
     if data.get("code") == 0 and data.get("data") is None:
         return ParsedPrice(
@@ -323,7 +357,7 @@ def parse_hangzhouxizi(data: dict[str, Any]) -> ParsedPrice:
             sell_price=None,
             recycle_price=None,
             status="skipped",
-            parser_note="hangzhouxizi token invalid; refresh XIZI_RECYCLEXCX",
+            parser_note="hangzhouxizi endpoint rejected the request token",
         )
     goods = get_path(data, "data.goods")
     if isinstance(goods, dict):
