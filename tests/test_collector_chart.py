@@ -1,7 +1,7 @@
 ﻿import json
 
 from nsg_price.chart import generate_chart
-from nsg_price.collector import collect, normalize_headers, request_merchant_payload
+from nsg_price.collector import collect, normalize_headers, request_json, request_merchant_payload
 from nsg_price.storage import append_prices, load_prices
 
 
@@ -36,6 +36,29 @@ def test_fetch_missing_ids_does_not_crash(tmp_path):
 def test_normalize_headers_converts_values_to_strings():
     headers = normalize_headers({"xweb_xhr": 1, "content-type": "application/json", "empty": ""})
     assert headers == {"xweb_xhr": "1", "content-type": "application/json"}
+
+
+def test_request_json_uses_persistent_http_session(monkeypatch):
+    calls = []
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"status": 200}
+
+    class FakeSession:
+        def request(self, **kwargs):
+            calls.append(kwargs)
+            return FakeResponse()
+
+    session = FakeSession()
+    monkeypatch.setattr("nsg_price.collector.http_session", lambda: session)
+
+    assert request_json({"url": "https://example.test/detail/1"}, {}) == {"status": 200}
+    assert request_json({"url": "https://example.test/detail/2"}, {}) == {"status": 200}
+    assert len(calls) == 2
 
 
 def test_hangzhouxizi_request_payload_fetches_guige_from_detail(monkeypatch):

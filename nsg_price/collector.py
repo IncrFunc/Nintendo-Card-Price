@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 import time
 import warnings
 from datetime import datetime, timezone
@@ -17,6 +18,15 @@ from .storage import append_prices, configured_price_path
 from .utils import compact_json, render_template
 
 LOGGER = logging.getLogger(__name__)
+_HTTP_STATE = threading.local()
+
+
+def http_session() -> requests.Session:
+    session = getattr(_HTTP_STATE, "session", None)
+    if session is None:
+        session = requests.Session()
+        _HTTP_STATE.session = session
+    return session
 
 
 def missing_required_env(merchant: dict[str, Any]) -> list[str]:
@@ -77,7 +87,7 @@ def request_json(endpoint: dict[str, Any], request_settings: dict[str, Any]) -> 
 
     for attempt in range(retries + 1):
         try:
-            response = requests.request(
+            response = http_session().request(
                 method=method,
                 url=endpoint["url"],
                 headers=headers or None,
