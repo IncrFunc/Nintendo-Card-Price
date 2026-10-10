@@ -257,6 +257,21 @@ def test_mogushijian_parser_prefers_boxed_recycle_price():
     assert parsed.recycle_price == 210.0
 
 
+def test_mogushijian_parser_accepts_public_catalog_item():
+    parsed = PARSERS["mogushijian"](
+        {
+            "cardsId": 2395,
+            "name": "塞尔达传说 旷野之息 + 扩充票 组合",
+            "price": 450,
+            "generationType": 1,
+        }
+    )
+
+    assert parsed.item_id == "2395"
+    assert parsed.recycle_price == 450.0
+    assert parsed.parser_note == "recycle_price=catalog_item.price"
+
+
 def test_parser_raises_when_price_missing():
     with pytest.raises(ParserError):
         PARSERS["baibiandui"]({"data": {"id": "x", "name": "No price"}})

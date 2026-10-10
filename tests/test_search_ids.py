@@ -82,6 +82,36 @@ def test_request_search_payload_uses_tls_verification_default():
     assert "verify" not in calls[0]
 
 
+def test_huoqiangshou_search_uses_current_api_host():
+    calls = []
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"data": {"rows": []}}
+
+    class FakeSession:
+        def post(self, url, **kwargs):
+            calls.append((url, kwargs))
+            return FakeResponse()
+
+    payload = request_search_payload(FakeSession(), "huoqiangshou", "塞尔达")
+
+    assert payload == {"data": {"rows": []}}
+    assert calls[0][0] == "https://api.xiamenhuoqiangshou.com/seller/category/getProductInfoPage"
+
+
+def test_mogushijian_search_uses_public_alipay_catalog(monkeypatch):
+    rows = [{"cardsId": 2395, "name": "塞尔达传说 旷野之息 + 扩充票 组合", "price": 450}]
+    monkeypatch.setattr("nsg_price.search_ids.fetch_mogushijian_catalog", lambda session, timeout: rows)
+
+    payload = request_search_payload(object(), "mogushijian", "塞尔达")
+
+    assert payload == {"list": rows}
+
+
 def test_search_keywords_include_rules_and_custom_keyword():
     game = {
         "slug": "zelda-tears-of-the-kingdom",

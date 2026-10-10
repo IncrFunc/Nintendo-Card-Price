@@ -227,7 +227,7 @@ def parse_huoqiangshou(data: dict[str, Any]) -> ParsedPrice:
     detail_data = detail.get("data") or {}
     receive_price = as_money(detail_data.get("receivePrice"))
     if receive_price is None:
-        raise ParserError("火枪手缺少 detail.data.receivePrice")
+        raise ParserError("火玱手缺少 detail.data.receivePrice")
 
     reduce_price = huoqiangshou_other_shop_reduce(apprize)
     if reduce_price is None:
@@ -441,6 +441,17 @@ def parse_baibiandui(data: dict[str, Any]) -> ParsedPrice:
 
 
 def parse_mogushijian(data: dict[str, Any]) -> ParsedPrice:
+    catalog_price = as_money(data.get("price"))
+    if catalog_price is not None and data.get("cardsId") is not None:
+        return ParsedPrice(
+            game_name=str(data.get("name")) if data.get("name") is not None else None,
+            item_id=str(data.get("cardsId")),
+            sku_id=None,
+            sell_price=None,
+            recycle_price=catalog_price,
+            parser_note="recycle_price=catalog_item.price",
+        )
+
     specs = data.get("specList")
     if not isinstance(specs, list):
         raise ParserError("mogushijian missing specList")

@@ -24,7 +24,7 @@ def test_generate_report_svg_pages(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     config = {
         "settings": {"storage": {"prices_path": str(prices_path)}},
-        "merchants": {"laolieren": {"name": "老猎人"}, "huoqiangshou": {"name": "火枪手"}},
+        "merchants": {"laolieren": {"name": "老猎人"}, "huoqiangshou": {"name": "火玱手"}},
         "games": [
             {"slug": "zelda-breath-of-the-wild", "name": "塞尔达传说 旷野之息", "enabled": True},
             {"slug": "missing-game", "name": "缺失游戏", "enabled": True},
@@ -53,7 +53,7 @@ def test_today_table_marks_highest_recycle_price():
     config = {
         "merchants": {
             "laolieren": {"name": "老猎人"},
-            "huoqiangshou": {"name": "火枪手"},
+            "huoqiangshou": {"name": "火玱手"},
             "hailuo": {"name": "海螺"},
             "baibiandui": {"name": "百变兑"},
             "hangzhouxizi": {"name": "杭州西子"},
@@ -104,7 +104,7 @@ def test_today_table_hides_merchant_when_current_run_all_failed():
     config = {
         "merchants": {
             "laolieren": {"name": "老猎人"},
-            "huoqiangshou": {"name": "火枪手"},
+            "huoqiangshou": {"name": "火玱手"},
         },
         "games": [{"slug": "zelda", "name": "塞尔达", "enabled": True}],
     }

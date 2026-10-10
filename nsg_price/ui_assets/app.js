@@ -60,7 +60,17 @@ const state = { config: null, games: [], selected: null, matches: [], draggedSlu
         headers: { "content-type": "application/json" },
         ...options,
       });
-      const data = await response.json();
+      const body = await response.text();
+      const responseLabel = `HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ""}`;
+      if (!body.trim()) {
+        throw new Error(`服务器返回空响应（${responseLabel}）`);
+      }
+      let data;
+      try {
+        data = JSON.parse(body);
+      } catch {
+        throw new Error(`服务器返回非 JSON 响应（${responseLabel}）`);
+      }
       if (!response.ok || data.error) {
         throw new Error(data.error || response.statusText);
       }

@@ -49,12 +49,12 @@
       }
     },
     "huoqiangshou": {
-      "name": "火枪手",
+      "name": "火玱手",
       "enabled": true,
       "parser": "huoqiangshou",
       "endpoint": {
         "method": "POST",
-        "url": "https://api.huoqiangshou.cn/seller/sellerProduct/getProductDetail",
+        "url": "https://api.xiamenhuoqiangshou.com/seller/sellerProduct/getProductDetail",
         "headers": {
           "content-type": "application/x-www-form-urlencoded"
         },
@@ -65,7 +65,7 @@
       },
       "apprize_endpoint": {
         "method": "POST",
-        "url": "https://api.huoqiangshou.cn/seller/sellerProduct/getProductApprizeQuestion",
+        "url": "https://api.xiamenhuoqiangshou.com/seller/sellerProduct/getProductApprizeQuestion",
         "headers": {
           "content-type": "application/x-www-form-urlencoded"
         },
@@ -199,35 +199,22 @@
       "name": "蘑菇时间",
       "enabled": true,
       "parser": "mogushijian",
-      "requires_env": [
-        "MOGUSHIJIAN_TOKEN"
-      ],
+      "catalog_mode": "public_cards",
       "endpoint": {
         "method": "POST",
-        "url": "https://api.mogushijian.com/alia/used/specInfo",
+        "url": "https://api.zhualegezhua.cn/alia/used/recycle/cardsList",
         "headers": {
-          "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 MicroMessenger/7.0.20.1781(0x6700143B) NetType/WIFI MiniProgramEnv/Windows WindowsWechat/WMPF WindowsWechat(0x63090a13) UnifiedPCWindowsWechat(0xf2541a34) XWEB/19977",
-          "xweb_xhr": "1",
           "content-type": "application/json",
-          "alianame": "${MOGUSHIJIAN_ALIANAME:alia2}",
-          "Token": "${MOGUSHIJIAN_TOKEN}",
-          "accept": "*/*",
-          "sec-fetch-site": "cross-site",
-          "sec-fetch-mode": "cors",
-          "sec-fetch-dest": "empty",
-          "referer": "${MOGUSHIJIAN_REFERER:https://servicewechat.com/wx95e68e4fbf89d3f7/3/page-frame.html}",
-          "accept-encoding": "gzip, deflate, br",
-          "accept-language": "zh-CN,zh;q=0.9"
+          "alianame": "alia2",
+          "accept": "*/*"
         },
         "json": {
-          "cardsId": "{{game_id}}",
-          "type": 2
+          "page": 1
         }
       },
       "price_rules": {
-        "calculation": "specList[name=二手盒装].recyclePrice; fallback first spec recyclePrice",
-        "sell_price_path": "specList[].buyPrice",
-        "recycle_price_path": "specList[].recyclePrice",
+        "calculation": "matched catalog item.price",
+        "recycle_price_path": "price",
         "name_path": "name",
         "item_id_path": "cardsId"
       }

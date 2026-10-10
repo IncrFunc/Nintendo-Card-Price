@@ -13,12 +13,18 @@ import urllib3
 
 from .config import enabled_games
 from .constants import DEFAULT_XIZI_UUID
+from .mogushijian import fetch_catalog as fetch_mogushijian_catalog
 from .parsers import PARSERS
+from .search_ids import candidates_for_game
 from .storage import append_prices, configured_price_path
 from .utils import compact_json, render_template
 
 LOGGER = logging.getLogger(__name__)
 _HTTP_STATE = threading.local()
+
+
+class MerchantUnavailableError(RuntimeError):
+    pass
 
 
 def http_session() -> requests.Session:
@@ -179,11 +185,36 @@ def request_merchant_payload(merchant: dict[str, Any], endpoint: dict[str, Any],
     return request_json(endpoint, request_settings)
 
 
+def match_mogushijian_catalog(game: dict[str, Any], catalog: list[dict[str, Any]]) -> dict[str, Any]:
+    configured_id = str(
+        game.get("merchant_ids", {}).get("mogushijian", {}).get("game_id") or ""
+    )
+    if configured_id:
+        configured_match = next(
+            (item for item in catalog if str(item.get("cardsId")) == configured_id),
+            None,
+        )
+        if configured_match is not None:
+            return configured_match
+
+    rows = [
+        {"game_id": str(item.get("cardsId")), "game_name": str(item.get("name") or "")}
+        for item in catalog
+        if item.get("cardsId") is not None and item.get("name")
+    ]
+    candidates = candidates_for_game(game, "mogushijian", rows, top=1)
+    if not candidates or not candidates[0].get("rule_passed"):
+        raise MerchantUnavailableError("mogushijian catalog does not list this game")
+    matched_id = str(candidates[0]["game_id"])
+    return next(item for item in catalog if str(item.get("cardsId")) == matched_id)
+
+
 def collect(config: dict[str, Any], game_slug: str | None = None, dry_run: bool = False) -> list[dict[str, Any]]:
     request_settings = config.get("settings", {}).get("request", {})
     default_xizi_uuid = str(config.get("settings", {}).get("default_xizi_uuid") or DEFAULT_XIZI_UUID)
     merchants = config.get("merchants", {})
     records: list[dict[str, Any]] = []
+    mogushijian_catalog: list[dict[str, Any]] | None = None
     fetched_at = datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
     for game in enabled_games(config, game_slug):
         merchant_ids = game.get("merchant_ids", {})
@@ -194,7 +225,8 @@ def collect(config: dict[str, Any], game_slug: str | None = None, dry_run: bool 
 
             ids = merchant_ids.get(merchant_key, {})
             game_id = ids.get("game_id") or ids.get("productId") or ids.get("id")
-            if not game_id:
+            uses_public_catalog = merchant.get("catalog_mode") == "public_cards"
+            if not game_id and not uses_public_catalog:
                 message = "missing game_id"
                 LOGGER.warning("%s/%s skipped: %s", merchant_key, game.get("slug"), message)
                 records.append(
@@ -258,7 +290,19 @@ def collect(config: dict[str, Any], game_slug: str | None = None, dry_run: bool 
                 continue
 
             try:
-                raw = request_merchant_payload(merchant, endpoint, request_settings)
+                if uses_public_catalog:
+                    if mogushijian_catalog is None:
+                        mogushijian_catalog = fetch_mogushijian_catalog(
+                            http_session(),
+                            timeout=int(request_settings.get("timeout_seconds", 10)),
+                            retries=int(request_settings.get("retries", 2)),
+                            backoff=float(request_settings.get("retry_backoff_seconds", 1)),
+                            verify=bool(request_settings.get("verify_ssl", True)),
+                        )
+                    raw = match_mogushijian_catalog(game, mogushijian_catalog)
+                    game_id = raw.get("cardsId")
+                else:
+                    raw = request_merchant_payload(merchant, endpoint, request_settings)
                 parsed = parser(raw)
                 record = {
                     "merchant": merchant_key,
@@ -277,6 +321,18 @@ def collect(config: dict[str, Any], game_slug: str | None = None, dry_run: bool 
                 if request_settings.get("save_raw_response", False):
                     record["raw_response"] = compact_json(raw)
                 records.append(record)
+            except MerchantUnavailableError as exc:
+                LOGGER.info("%s/%s unavailable: %s", merchant_key, game.get("slug"), exc)
+                records.append(
+                    make_error_record(
+                        merchant_key=merchant_key,
+                        merchant_name=merchant_name,
+                        game=game,
+                        error=str(exc),
+                        fetched_at=fetched_at,
+                        status="unavailable",
+                    )
+                )
             except Exception as exc:  # noqa: BLE001 - keep one merchant failure isolated.
                 LOGGER.exception("%s/%s failed", merchant_key, game.get("slug"))
                 records.append(

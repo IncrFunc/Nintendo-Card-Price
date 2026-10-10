@@ -21,7 +21,7 @@ def test_daily_average_uses_latest_record_per_merchant_per_day():
         },
         {
             "merchant": "huoqiangshou",
-            "merchant_name": "火枪手",
+            "merchant_name": "火玱手",
             "game_slug": "zelda",
             "recycle_price": 200,
             "status": "ok",
@@ -30,4 +30,4 @@ def test_daily_average_uses_latest_record_per_merchant_per_day():
     ]
     daily = build_daily_average_series(records, "zelda")
     assert daily[0]["avg_price"] == 160
-    assert {item["merchant"]: item["price"] for item in daily[0]["merchant_prices"]} == {"老猎人": 120, "火枪手": 200}
+    assert {item["merchant"]: item["price"] for item in daily[0]["merchant_prices"]} == {"老猎人": 120, "火玱手": 200}

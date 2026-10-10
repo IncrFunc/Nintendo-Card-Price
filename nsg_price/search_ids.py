@@ -12,6 +12,7 @@ import requests
 from .config import enabled_games, find_game
 from .config_tools import set_id
 from .constants import DEFAULT_XIZI_UUID
+from .mogushijian import fetch_catalog as fetch_mogushijian_catalog
 from .utils import write_json
 
 SEARCH_MERCHANTS = ("laolieren", "huoqiangshou", "hailuo", "hangzhouxizi", "baibiandui", "mogushijian", "buerjia")
@@ -488,7 +489,7 @@ def request_search_payload(
             "gameType": "",
         }
         response = session.post(
-            "https://api.huoqiangshou.cn/seller/category/getProductInfoPage",
+            "https://api.xiamenhuoqiangshou.com/seller/category/getProductInfoPage",
             headers=huoqiangshou_headers(),
             data=body,
             timeout=timeout,
@@ -528,12 +529,7 @@ def request_search_payload(
             timeout=timeout,
         )
     elif merchant == "mogushijian":
-        response = session.post(
-            "https://api.mogushijian.com/alia/used/search",
-            headers=mogushijian_headers(),
-            json={"name": keyword, "page": page, "type": 2},
-            timeout=timeout,
-        )
+        return {"list": fetch_mogushijian_catalog(session, timeout=timeout)}
     elif merchant == "buerjia":
         response = session.post(
             "https://bejdw.crystal-cloud.top/api/games/list",

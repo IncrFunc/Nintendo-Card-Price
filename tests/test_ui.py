@@ -36,6 +36,14 @@ def test_search_request_uses_current_keyword_input():
     assert "search_keywords=[keyword] if keyword else None" in UI_PY
 
 
+def test_api_reports_empty_and_non_json_responses():
+    assert "const body = await response.text();" in APP_JS
+    assert "服务器返回空响应" in APP_JS
+    assert "data = JSON.parse(body);" in APP_JS
+    assert "服务器返回非 JSON 响应" in APP_JS
+    assert "response.json()" not in APP_JS
+
+
 def test_editor_uses_three_column_workbench_layout():
     assert "Full reset redesign: calm operations console" in STYLES_CSS
     assert "<h1>Switch Price Ops</h1>" in INDEX_HTML

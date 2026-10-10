@@ -33,6 +33,108 @@ def test_fetch_missing_ids_does_not_crash(tmp_path):
     assert records[0]["error"] == "missing game_id"
 
 
+def test_mogushijian_public_catalog_refreshes_id_and_price_without_token(monkeypatch, tmp_path):
+    calls = []
+    config = {
+        "settings": {
+            "request": {"save_raw_response": False},
+            "storage": {"prices_path": str(tmp_path / "prices.db")},
+        },
+        "games": [
+            {
+                "slug": "zelda-breath-of-the-wild-bundle",
+                "name": "塞尔达传说 旷野之息 DLC同捆",
+                "platform": "Nintendo Switch",
+                "enabled": True,
+                "merchant_ids": {"mogushijian": {"game_id": ""}},
+            }
+        ],
+        "merchants": {
+            "mogushijian": {
+                "name": "蘑菇时间",
+                "enabled": True,
+                "parser": "mogushijian",
+                "catalog_mode": "public_cards",
+                "endpoint": {"method": "POST", "url": "https://example.test", "json": {"page": 1}},
+            }
+        },
+    }
+
+    def fake_catalog(*args, **kwargs):
+        calls.append((args, kwargs))
+        return [
+            {
+                "cardsId": 2395,
+                "name": "塞尔达传说 旷野之息 + 扩充票 组合",
+                "price": 450,
+                "generationType": 1,
+            }
+        ]
+
+    monkeypatch.setattr("nsg_price.collector.fetch_mogushijian_catalog", fake_catalog)
+
+    records = collect(config)
+
+    assert len(calls) == 1
+    assert records[0]["status"] == "ok"
+    assert records[0]["item_id"] == "2395"
+    assert records[0]["recycle_price"] == 450.0
+
+
+def test_mogushijian_catalog_prefers_configured_live_id_over_similar_title():
+    from nsg_price.collector import match_mogushijian_catalog
+
+    game = {
+        "slug": "super-mario-party",
+        "name": "超级马里奥派对",
+        "platform": "Nintendo Switch",
+        "merchant_ids": {"mogushijian": {"game_id": "2196"}},
+    }
+    catalog = [
+        {"cardsId": 106, "name": "超级马里奥派对 空前盛会", "price": 205},
+        {"cardsId": 2196, "name": "超级马里奥派对", "price": 145},
+    ]
+
+    matched = match_mogushijian_catalog(game, catalog)
+
+    assert matched["cardsId"] == 2196
+    assert matched["price"] == 145
+
+
+def test_mogushijian_missing_from_public_catalog_is_unavailable(monkeypatch, tmp_path):
+    config = {
+        "settings": {"request": {}, "storage": {"prices_path": str(tmp_path / "prices.db")}},
+        "games": [
+            {
+                "slug": "not-listed",
+                "name": "当前目录没有的游戏",
+                "platform": "Nintendo Switch",
+                "enabled": True,
+                "merchant_ids": {"mogushijian": {"game_id": ""}},
+            }
+        ],
+        "merchants": {
+            "mogushijian": {
+                "name": "蘑菇时间",
+                "enabled": True,
+                "parser": "mogushijian",
+                "catalog_mode": "public_cards",
+                "endpoint": {"method": "POST", "url": "https://example.test", "json": {"page": 1}},
+            }
+        },
+    }
+    monkeypatch.setattr(
+        "nsg_price.collector.fetch_mogushijian_catalog",
+        lambda *args, **kwargs: [{"cardsId": 1, "name": "别的游戏", "price": 100}],
+    )
+
+    records = collect(config)
+
+    assert records[0]["status"] == "unavailable"
+    assert records[0]["recycle_price"] is None
+    assert records[0]["error"] == "mogushijian catalog does not list this game"
+
+
 def test_normalize_headers_converts_values_to_strings():
     headers = normalize_headers({"xweb_xhr": 1, "content-type": "application/json", "empty": ""})
     assert headers == {"xweb_xhr": "1", "content-type": "application/json"}
