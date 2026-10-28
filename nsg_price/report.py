@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import html
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 from .aggregation import build_daily_average_series, date_key
 from .paths import report_dir
 from .storage import configured_price_path, load_price_records
+from .trend_chart import PAGE_SIZE as TREND_PAGE_SIZE, render_trend_page
 from .utils import write_json
 
 try:
@@ -19,9 +20,7 @@ except ImportError:  # pragma: no cover - optional PNG output.
     Image = ImageDraw = ImageFont = None  # type: ignore[assignment]
 
 
-COLORS = ["#0f766e", "#2563eb", "#c2410c", "#7c3aed", "#be123c", "#15803d"]
 MERCHANT_ORDER = ["laolieren", "huoqiangshou", "hailuo", "mogushijian", "baibiandui", "hangzhouxizi", "buerjia"]
-TREND_MAX_POINTS = 12
 TREND_LOOKBACK_DAYS = 365
 FONT_REGULAR_CANDIDATES = [
     "C:/Windows/Fonts/msyh.ttc",
@@ -339,178 +338,18 @@ def generate_today_page(config: dict[str, Any], records: list[dict[str, Any]], t
     write_svg(output, "\n".join(parts))
 
 
-def polyline_points(series: list[tuple[str, float]], x: int, y: int, width: int, height: int, min_v: float, max_v: float) -> str:
-    if not series:
-        return ""
-    if len(series) == 1:
-        px = x + width
-        py = y + height / 2
-        return f"{px:.1f},{py:.1f}"
-    span = max(max_v - min_v, 1)
-    points = []
-    for idx, (_, value) in enumerate(series):
-        px = x + idx * width / (len(series) - 1)
-        py = y + height - (value - min_v) / span * height
-        points.append(f"{px:.1f},{py:.1f}")
-    return " ".join(points)
-
-
-def lttb_downsample(series: list[tuple[str, str, float]], max_points: int = TREND_MAX_POINTS) -> list[tuple[str, str, float]]:
-    if len(series) <= max_points:
-        return series
-    if max_points < 3:
-        return [series[0], series[-1]]
-
-    sampled = [series[0]]
-    bucket_size = (len(series) - 2) / (max_points - 2)
-    anchor_index = 0
-    for bucket in range(max_points - 2):
-        range_start = int(1 + bucket * bucket_size)
-        range_end = int(1 + (bucket + 1) * bucket_size)
-        range_end = min(range_end, len(series) - 1)
-        next_start = int(1 + (bucket + 1) * bucket_size)
-        next_end = int(1 + (bucket + 2) * bucket_size)
-        next_end = min(next_end, len(series))
-        next_bucket = series[next_start:next_end] or [series[-1]]
-        avg_x = sum(range(next_start, next_start + len(next_bucket))) / len(next_bucket)
-        avg_y = sum(item[2] for item in next_bucket) / len(next_bucket)
-        anchor_x = anchor_index
-        anchor_y = series[anchor_index][2]
-        candidates = series[range_start:range_end] or [series[range_start]]
-        best_index = range_start
-        best_area = -1.0
-        for offset, item in enumerate(candidates):
-            candidate_index = range_start + offset
-            area = abs((anchor_x - avg_x) * (item[2] - anchor_y) - (anchor_x - candidate_index) * (avg_y - anchor_y))
-            if area > best_area:
-                best_area = area
-                best_index = candidate_index
-        sampled.append(series[best_index])
-        anchor_index = best_index
-    sampled.append(series[-1])
-    return sampled
-
-
-def y_axis_ticks(min_v: float, max_v: float, count: int = 4) -> list[float]:
-    if max_v < min_v:
-        min_v, max_v = max_v, min_v
-    if max_v == min_v:
-        return [max_v + 1, max_v, max_v - 1]
-    return [max_v - idx * (max_v - min_v) / (count - 1) for idx in range(count)]
-
-
-def y_for_value(value: float, chart_y: int, chart_h: int, min_v: float, max_v: float) -> float:
-    span = max(max_v - min_v, 1)
-    return chart_y + chart_h - (value - min_v) / span * chart_h
-
-
 def generate_trend_page(records: list[dict[str, Any]], games: list[dict[str, Any]], page_no: int, output: Path, target_date: str | None = None) -> None:
-    parts = [
-        svg_text(54, 74, "回收价走势", 38, 760),
-        svg_text(54, 112, f"第 {page_no} 页 · 每页 6 款 · 近一年趋势", 22, 500, "#64748b"),
-    ]
-    for idx, game in enumerate(games):
-        row, col = divmod(idx, 2)
-        panel_x = 54 + col * 500
-        panel_y = 154 + row * 385
-        panel_w = 470
-        panel_h = 330
-        chart_x = panel_x + 64
-        chart_y = panel_y + 92
-        chart_w = panel_w - 96
-        chart_h = 164
-        series = trend_average_series(records, game["slug"], target_date)
-        sampled_series = lttb_downsample(series)
-        plot_series = [(label, value) for _, label, value in sampled_series]
-        values = [value for _, _, value in series]
-        min_v = min(values) if values else 0
-        max_v = max(values) if values else 1
-        color = COLORS[idx % len(COLORS)]
-        parts.append(f'<rect x="{panel_x}" y="{panel_y}" width="{panel_w}" height="{panel_h}" rx="16" fill="#ffffff" stroke="#e5e7eb"/>')
-        name = game["name"][:17] + ("…" if len(game["name"]) > 17 else "")
-        parts.append(svg_text(panel_x + 24, panel_y + 46, name, 23, 720))
-        latest = f"¥{series[-1][2]:.0f}" if series else "暂无"
-        parts.append(svg_text(panel_x + panel_w - 24, panel_y + 46, latest, 23, 760, color, "end"))
-        # Keep the small cards focused on the line shape; axis labels carry the price scale.
-        for tick in y_axis_ticks(min_v, max_v):
-            gy = y_for_value(tick, chart_y, chart_h, min_v, max_v)
-            parts.append(f'<line x1="{chart_x}" y1="{gy:.1f}" x2="{chart_x + chart_w}" y2="{gy:.1f}" stroke="#e5e7eb"/>')
-            parts.append(svg_text(chart_x - 8, int(gy + 5), f"¥{tick:.0f}", 13, 600, "#94a3b8", "end"))
-        points = polyline_points(plot_series, chart_x, chart_y, chart_w, chart_h, min_v, max_v)
-        if points:
-            parts.append(f'<polyline points="{points}" fill="none" stroke="{color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>')
-            for point in points.split():
-                px, py = point.split(",")
-                parts.append(f'<circle cx="{px}" cy="{py}" r="5" fill="{color}"/>')
-        else:
-            parts.append(svg_text(chart_x + chart_w / 2, chart_y + 88, "暂无历史价格", 20, 600, "#94a3b8", "middle"))
-        if series:
-            parts.append(svg_text(chart_x, chart_y + chart_h + 34, sampled_series[0][1], 16, 500, "#94a3b8"))
-            if len(sampled_series) > 2:
-                mid = sampled_series[len(sampled_series) // 2]
-                parts.append(svg_text(chart_x + chart_w / 2, chart_y + chart_h + 34, mid[1], 16, 500, "#94a3b8", "middle"))
-            parts.append(svg_text(chart_x + chart_w, chart_y + chart_h + 34, sampled_series[-1][1], 16, 500, "#94a3b8", "end"))
-    write_svg(output, "\n".join(parts))
-
-
-def scale_point(index: int, count: int, value: float, x: int, y: int, width: int, height: int, min_v: float, max_v: float) -> tuple[int, int]:
-    px = x + width if count == 1 else x + round(index * width / (count - 1))
-    span = max(max_v - min_v, 1)
-    py = y + height - round((value - min_v) / span * height)
-    return px, py
+    end = date.fromisoformat(target_date) if target_date else datetime.now().date()
+    rows = [(game["name"], trend_average_series(records, game["slug"], end.isoformat())) for game in games]
+    render_trend_page(rows, end, output, font_loader=load_font if PIL_AVAILABLE else None)
 
 
 def generate_trend_png(records: list[dict[str, Any]], games: list[dict[str, Any]], page_no: int, output: Path, target_date: str | None = None) -> None:
     if not PIL_AVAILABLE:
         return
-    image = Image.new("RGB", (1080, 1440), "#f7f8fb")
-    draw = ImageDraw.Draw(image)
-    png_text(draw, (54, 46), "回收价走势", 38, bold=True)
-    png_text(draw, (54, 96), f"第 {page_no} 页 · 每页 6 款 · 近一年趋势", 22, "#64748b")
-    for idx, game in enumerate(games):
-        row, col = divmod(idx, 2)
-        panel_x = 54 + col * 500
-        panel_y = 154 + row * 385
-        panel_w = 470
-        panel_h = 330
-        chart_x = panel_x + 64
-        chart_y = panel_y + 92
-        chart_w = panel_w - 96
-        chart_h = 164
-        series = trend_average_series(records, game["slug"], target_date)
-        sampled_series = lttb_downsample(series)
-        values = [value for _, _, value in series]
-        min_v = min(values) if values else 0
-        max_v = max(values) if values else 1
-        color = COLORS[idx % len(COLORS)]
-        draw.rounded_rectangle((panel_x, panel_y, panel_x + panel_w, panel_y + panel_h), radius=16, fill="#ffffff", outline="#e5e7eb", width=1)
-        name = game["name"][:15] + ("…" if len(game["name"]) > 15 else "")
-        png_text(draw, (panel_x + 24, panel_y + 25), name, 23, "#172033", bold=True)
-        latest = f"¥{series[-1][2]:.0f}" if series else "暂无"
-        png_text(draw, (panel_x + panel_w - 24, panel_y + 25), latest, 23, color, bold=True, anchor="ra")
-        # Keep the small cards focused on the line shape; axis labels carry the price scale.
-        for tick in y_axis_ticks(min_v, max_v):
-            gy = round(y_for_value(tick, chart_y, chart_h, min_v, max_v))
-            draw.line((chart_x, gy, chart_x + chart_w, gy), fill="#e5e7eb", width=2)
-            png_text(draw, (chart_x - 8, gy - 8), f"¥{tick:.0f}", 13, "#94a3b8", bold=True, anchor="ra")
-        if series:
-            points = [scale_point(i, len(sampled_series), value, chart_x, chart_y, chart_w, chart_h, min_v, max_v) for i, (_, _, value) in enumerate(sampled_series)]
-            if len(points) == 1:
-                x, y = points[0]
-                draw.ellipse((x - 6, y - 6, x + 6, y + 6), fill=color)
-            else:
-                draw.line(points, fill=color, width=4, joint="curve")
-                for x, y in points:
-                    draw.ellipse((x - 5, y - 5, x + 5, y + 5), fill=color)
-            png_text(draw, (chart_x, chart_y + chart_h + 22), sampled_series[0][1], 16, "#94a3b8")
-            if len(sampled_series) > 2:
-                mid = sampled_series[len(sampled_series) // 2]
-                png_text(draw, (chart_x + chart_w // 2, chart_y + chart_h + 22), mid[1], 16, "#94a3b8", anchor="ma")
-            png_text(draw, (chart_x + chart_w, chart_y + chart_h + 22), sampled_series[-1][1], 16, "#94a3b8", anchor="ra")
-        else:
-            png_text(draw, (chart_x + chart_w // 2, chart_y + 72), "暂无历史价格", 20, "#94a3b8", bold=True, anchor="ma")
-    output.parent.mkdir(parents=True, exist_ok=True)
-    image.save(output)
+    end = date.fromisoformat(target_date) if target_date else datetime.now().date()
+    rows = [(game["name"], trend_average_series(records, game["slug"], end.isoformat())) for game in games]
+    render_trend_page(rows, end, output, image_module=Image, draw_module=ImageDraw, font_loader=load_font)
 
 
 def generate_report(config: dict[str, Any], target_date: str | None = None) -> list[Path]:
@@ -539,13 +378,18 @@ def generate_report(config: dict[str, Any], target_date: str | None = None) -> l
         generate_today_png(page_config, records, target_date, today_png)
         if today_png.exists():
             outputs.append(today_png)
-    for idx in range(0, len(games), 6):
-        page_no = idx // 6 + len(today_chunks) + 1
+    for idx in range(0, len(games), TREND_PAGE_SIZE):
+        page_no = idx // TREND_PAGE_SIZE + len(today_chunks) + 1
         output = output_dir / f"{page_no:02d}_trend.svg"
-        generate_trend_page(records, games[idx : idx + 6], page_no, output, target_date)
+        generate_trend_page(records, games[idx : idx + TREND_PAGE_SIZE], page_no, output, target_date)
         outputs.append(output)
         png_output = output_dir / f"{page_no:02d}_trend.png"
-        generate_trend_png(records, games[idx : idx + 6], page_no, png_output, target_date)
+        generate_trend_png(records, games[idx : idx + TREND_PAGE_SIZE], page_no, png_output, target_date)
         if png_output.exists():
             outputs.append(png_output)
+    expected = set(outputs)
+    for pattern in ("*_trend.svg", "*_trend.png", "*_today_prices.svg", "*_today_prices.png"):
+        for old_output in output_dir.glob(pattern):
+            if old_output not in expected:
+                old_output.unlink()
     return outputs

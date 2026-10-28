@@ -1,7 +1,8 @@
 import json
 from datetime import date, timedelta
 
-from nsg_price.report import PIL_AVAILABLE, build_today_price_table, generate_report, lttb_downsample, today_column_centers, today_highlight_half_width, trend_average_series
+from nsg_price.report import PIL_AVAILABLE, build_today_price_table, generate_report, today_column_centers, today_highlight_half_width, trend_average_series
+from nsg_price.trend_chart import monthly_metrics, previous_month
 from nsg_price.storage import append_prices
 
 
@@ -147,10 +148,14 @@ def test_today_report_does_not_drop_games_after_26(tmp_path, monkeypatch):
     today_svgs = [path for path in outputs if path.suffix == ".svg" and "today" in path.name]
     trend_svgs = [path for path in outputs if path.suffix == ".svg" and "trend" in path.name]
     assert len(today_svgs) == 2
-    assert len(trend_svgs) == 5
+    assert len(trend_svgs) == 4
+    first_trend = trend_svgs[0].read_text(encoding="utf-8")
+    assert "测试卡带08" in first_trend
+    assert "测试卡带09" not in first_trend
+    assert "测试卡带30" in trend_svgs[-1].read_text(encoding="utf-8")
 
 
-def test_trend_chart_uses_axis_price_labels_and_downsampling(tmp_path, monkeypatch):
+def test_trend_chart_draws_entire_year_and_monthly_metrics(tmp_path, monkeypatch):
     prices_path = tmp_path / "prices.db"
     records = []
     start = date(2025, 5, 12)
@@ -184,21 +189,55 @@ def test_trend_chart_uses_axis_price_labels_and_downsampling(tmp_path, monkeypat
     assert series[0][0] == "2025-06-16"
     assert series[-1][0] == "2026-06-15"
     trend_svg = (tmp_path / "data" / "reports" / "2026-06-15" / "02_trend.svg").read_text(encoding="utf-8")
-    assert 'text-anchor="end">¥' in trend_svg
-    assert trend_svg.count('<circle') <= 12
+    import xml.etree.ElementTree as ET
+
+    root = ET.fromstring(trend_svg)
+    lines = root.findall("{http://www.w3.org/2000/svg}polyline")
+    curve = next(line for line in lines if line.attrib.get("stroke") == "#426abd")
+    assert len(curve.attrib["points"].split()) == 365
+    assert root.attrib["height"] == "1390"
+    assert "近一月最高均价" in trend_svg
+    assert "近一月 " in trend_svg
     assert "上午" not in trend_svg
     assert "下午" not in trend_svg
     assert "Δ" not in trend_svg
     assert "次→" not in trend_svg
-    assert "06-16" in trend_svg
-    assert "06-15" in trend_svg
+    assert "06/16" in trend_svg
+    assert "06/15" in trend_svg
 
 
-def test_lttb_downsample_keeps_first_and_last():
-    series = [(f"2026-06-{index:02d}", f"06-{index:02d}", float(index % 7)) for index in range(1, 40)]
+def test_monthly_metrics_use_calendar_month_and_latest_prior_record():
+    series = [
+        ("2026-08-01", "08-01", 500.0),
+        ("2026-09-27", "09-27", 200.0),
+        ("2026-10-01", "10-01", 220.0),
+        ("2026-10-28", "10-28", 180.0),
+    ]
+    highest, change = monthly_metrics(series, date(2026, 10, 28))
+    assert highest == 220
+    assert round(change, 6) == -10
+    assert previous_month(date(2026, 3, 31)) == date(2026, 2, 28)
+    assert previous_month(date(2024, 3, 31)) == date(2024, 2, 29)
+    assert previous_month(date(2026, 1, 31)) == date(2025, 12, 31)
 
-    sampled = lttb_downsample(series, max_points=12)
 
-    assert len(sampled) == 12
-    assert sampled[0] == series[0]
-    assert sampled[-1] == series[-1]
+def test_monthly_metrics_handle_short_history_stale_and_zero():
+    assert monthly_metrics([], date(2026, 10, 28)) == (None, None)
+    assert monthly_metrics([("2026-08-01", "08-01", 200)], date(2026, 10, 28)) == (None, None)
+    highest, change = monthly_metrics([("2026-10-01", "10-01", 100), ("2026-10-28", "10-28", 110)], date(2026, 10, 28))
+    assert highest == 110
+    assert round(change, 6) == 10
+    assert monthly_metrics([("2026-10-28", "10-28", 0)], date(2026, 10, 28)) == (0, None)
+
+
+def test_regeneration_removes_obsolete_chart_pages(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    output = tmp_path / "data/reports/2026-10-28"
+    output.mkdir(parents=True)
+    obsolete = output / "10_trend.png"
+    obsolete.write_bytes(b"old chart")
+    keep = output / "personal.png"
+    keep.write_bytes(b"user file")
+    generate_report({"games": [], "merchants": {}, "settings": {"storage": {"prices_path": str(tmp_path / "prices.db")}}}, "2026-10-28")
+    assert not obsolete.exists()
+    assert keep.exists()
